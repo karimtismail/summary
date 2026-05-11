@@ -44,7 +44,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="grid gap-2.5">
-              {["Systems foundations", "Runtime mechanics", "Framework internals", "Protocol contracts", "Distributed logs", "Performance pressure", "Production debugging", "Architecture judgment"].map((item, index) => (
+              {["Systems foundations", "Runtime mechanics", "Framework internals", "Protocol contracts", "Distributed logs", "Delivery guarantees", "Performance pressure", "Production ownership"].map((item, index) => (
                 <div key={item} className="flex items-center gap-3">
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-panel font-mono text-xs text-accent">
                     {String(index + 1).padStart(2, "0")}

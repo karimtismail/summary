@@ -1,10 +1,6 @@
-"use client";
-
-import { Check, Copy } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
-import { isValidElement, useMemo, useState } from "react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { isValidElement } from "react";
+import { CodeBlockClient } from "@/components/mdx/CodeBlockClient";
 
 type CodeElementProps = {
   className?: string;
@@ -27,66 +23,34 @@ function toCodeString(value: ReactNode): string {
   return "";
 }
 
-async function writeClipboard(text: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
+function resolveLanguage(className: string, code: string) {
+  const explicitLanguage = className.match(/language-([a-z0-9+#-]+)/i)?.[1];
+  if (explicitLanguage && explicitLanguage !== "text") return explicitLanguage;
 
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  document.execCommand("copy");
-  textarea.remove();
+  const trimmed = code.trim();
+  if (/^(npm|npx|pnpm|yarn|curl|docker|kubectl|kafka-|java\s|mvn\s|gradle\s)/m.test(trimmed)) return "bash";
+  if (/^[$#]\s/m.test(trimmed)) return "bash";
+  if (
+    ["ByteBuffer", "ChannelPipeline", "EventLoopGroup", "KafkaProducer", "KafkaConsumer", "ProducerRecord", "ConsumerRecord"].some((symbol) =>
+      trimmed.includes(symbol)
+    )
+  ) {
+    return "java";
+  }
+  if (/\b(class|interface|enum)\s+[A-Z]\w+/.test(trimmed)) return "java";
+  if (/\b(public|private|protected)\s+(static\s+)?(void|final|class)\b/.test(trimmed)) return "java";
+  if (/\b(new|extends|implements)\s+[A-Z]\w+/.test(trimmed)) return "java";
+  if (/^[:.#\w\s,[\]="'>-]+\{[\s\S]*\}$/.test(trimmed) || /--[a-z0-9-]+:\s*#[0-9a-f]{3,8}/i.test(trimmed)) return "css";
+  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) return "json";
+
+  return "text";
 }
 
 export function CodeBlock({ children }: { children: ReactNode }) {
-  const [copied, setCopied] = useState(false);
   const codeElement = getCodeElement(children);
   const className = codeElement?.props.className ?? "";
-  const language = className.replace("language-", "") || "text";
-  const code = useMemo(() => toCodeString(codeElement?.props.children ?? children).replace(/\n$/, ""), [children, codeElement]);
+  const code = toCodeString(codeElement?.props.children ?? children).replace(/\n$/, "");
+  const language = resolveLanguage(className, code);
 
-  const copy = async () => {
-    await writeClipboard(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
-  };
-
-  return (
-    <div className="group relative my-8 overflow-hidden rounded-lg border border-border bg-[#0d1017] shadow-inset">
-      <div className="flex items-center justify-between border-b border-border bg-panel/70 px-4 py-2">
-        <span className="font-mono text-xs text-muted" suppressHydrationWarning>
-          {language}
-        </span>
-        <button
-          type="button"
-          onClick={copy}
-          className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-muted transition hover:border-accent/50 hover:text-text"
-          aria-label="Copy code"
-        >
-          {copied ? <Check className="h-3.5 w-3.5 text-accent-secondary" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-      <SyntaxHighlighter
-        language="text"
-        style={oneDark}
-        customStyle={{
-          margin: 0,
-          background: "transparent",
-          padding: "1.15rem",
-          fontSize: "0.875rem",
-          lineHeight: "1.75"
-        }}
-        codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
-      >
-        {code}
-      </SyntaxHighlighter>
-    </div>
-  );
+  return <CodeBlockClient code={code} language={language} />;
 }

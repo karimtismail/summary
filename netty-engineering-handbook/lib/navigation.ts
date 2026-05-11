@@ -80,10 +80,10 @@ export const sections: Section[] = [
     icon: Layers3,
     chapters: [
       { title: "EventLoop", slug: "eventloop", description: "The single-threaded execution lane for a channel." },
+      { title: "Futures", slug: "futures", description: "Async completion without blocking the EventLoop." },
       { title: "Pipeline", slug: "pipeline", description: "Inbound and outbound events as a protocol assembly line." },
       { title: "Handlers", slug: "handlers", description: "Reusable protocol behavior with sharp ownership rules." },
-      { title: "ByteBuf", slug: "bytebuf", description: "Reference-counted memory for high-throughput systems." },
-      { title: "Futures", slug: "futures", description: "Async completion without blocking the EventLoop." }
+      { title: "ByteBuf", slug: "bytebuf", description: "Reference-counted memory for high-throughput systems." }
     ]
   },
   {
@@ -103,21 +103,6 @@ export const sections: Section[] = [
     ]
   },
   {
-    title: "Performance Engineering",
-    slug: "performance",
-    description: "Measure bottlenecks across kernels, memory, backpressure, and queues.",
-    domain: "Reliability and speed",
-    level: "Advanced",
-    focus: "Latency and scale",
-    icon: Gauge,
-    chapters: [
-      { title: "epoll", slug: "epoll", description: "Linux readiness notification in production servers." },
-      { title: "Backpressure", slug: "backpressure", description: "Protect the system when consumers slow down." },
-      { title: "Memory", slug: "memory", description: "Direct buffers, pooling, and latency behavior." },
-      { title: "Tuning", slug: "tuning", description: "Measure before changing knobs." }
-    ]
-  },
-  {
     title: "Kafka and Event Streaming",
     slug: "kafka",
     description: "From log intuition to partitions, delivery guarantees, schemas, and operations.",
@@ -128,14 +113,29 @@ export const sections: Section[] = [
     chapters: [
       { title: "Distributed Log", slug: "distributed-log", description: "The core idea that makes Kafka different from a queue." },
       { title: "Brokers, Topics, and Partitions", slug: "brokers-topics-partitions", description: "How Kafka spreads ordered logs across machines." },
+      { title: "Replication and ISR", slug: "replication-isr", description: "Leader replicas, followers, and durability under failure." },
       { title: "Producers", slug: "producers", description: "Batching, keys, acknowledgements, and retry behavior." },
       { title: "Consumers and Offsets", slug: "consumers-offsets", description: "Consumer groups, progress tracking, and replay." },
-      { title: "Replication and ISR", slug: "replication-isr", description: "Leader replicas, followers, and durability under failure." },
       { title: "Delivery Semantics", slug: "delivery-semantics", description: "At-most-once, at-least-once, and exactly-once tradeoffs." },
       { title: "Transactions and Idempotence", slug: "transactions-idempotence", description: "Producer guarantees for duplicate-resistant workflows." },
       { title: "Schema Evolution", slug: "schema-evolution", description: "How event contracts survive version changes." },
       { title: "Stream Processing", slug: "stream-processing", description: "Stateful event processing, windows, joins, and changelogs." },
       { title: "Operations and Performance", slug: "operations-performance", description: "Lag, retention, compaction, partitions, and tuning." }
+    ]
+  },
+  {
+    title: "Performance Engineering",
+    slug: "performance",
+    description: "Measure bottlenecks across kernels, memory, backpressure, and queues.",
+    domain: "Reliability and speed",
+    level: "Advanced",
+    focus: "Latency and scale",
+    icon: Gauge,
+    chapters: [
+      { title: "Backpressure", slug: "backpressure", description: "Protect the system when consumers slow down." },
+      { title: "Memory", slug: "memory", description: "Direct buffers, pooling, and latency behavior." },
+      { title: "epoll", slug: "epoll", description: "Linux readiness notification in production servers." },
+      { title: "Tuning", slug: "tuning", description: "Measure before changing knobs." }
     ]
   },
   {
@@ -147,8 +147,8 @@ export const sections: Section[] = [
     focus: "Operating systems",
     icon: RadioTower,
     chapters: [
-      { title: "Production Debugging", slug: "production-debugging", description: "Evidence-first debugging for live distributed systems." },
       { title: "Architecture", slug: "architecture", description: "Designing boundaries, protocols, and failure modes." },
+      { title: "Production Debugging", slug: "production-debugging", description: "Evidence-first debugging for live distributed systems." },
       { title: "Real Projects", slug: "real-projects", description: "Practice paths that force runtime understanding." }
     ]
   }
@@ -184,7 +184,7 @@ export const handbookName = "Engineering Systems Handbook";
 export const handbookStats = [
   { value: "36", label: "chapters" },
   { value: "7", label: "active tracks" },
-  { value: "8", label: "future lanes" }
+  { value: "5", label: "future lanes" }
 ];
 
 export const chapterStructure = [
@@ -204,9 +204,9 @@ export const chapterStructure = [
 export const learningPaths = [
   {
     title: "Runtime Systems",
-    description: "Move from blocking IO to selectors, event loops, memory, and production debugging.",
-    href: "/handbook/foundations/blocking-io",
-    chapters: ["Blocking IO", "Selectors", "EventLoop", "ByteBuf", "Production Debugging"]
+    description: "Move from sockets and blocking IO to selectors, event loops, memory, and backpressure.",
+    href: "/handbook/foundations/networking-fundamentals",
+    chapters: ["Networking", "Blocking IO", "Selectors", "EventLoop", "Backpressure"]
   },
   {
     title: "Protocol Builder",
@@ -216,9 +216,9 @@ export const learningPaths = [
   },
   {
     title: "Event Platform",
-    description: "Build the mental model behind Kafka, distributed logs, delivery semantics, and operations.",
+    description: "Build the mental model behind Kafka storage, replication, clients, guarantees, and operations.",
     href: "/handbook/kafka/distributed-log",
-    chapters: ["Distributed Log", "Partitions", "Consumers", "Replication", "Operations"]
+    chapters: ["Distributed Log", "Partitions", "Replication", "Consumers", "Operations"]
   }
 ];
 

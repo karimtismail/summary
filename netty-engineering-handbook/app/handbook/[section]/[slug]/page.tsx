@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { compileMDX } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import { ChapterCheatSheet, ChapterSummary } from "@/components/docs/ChapterCheatSheet";
+import { ChapterLearningGuide } from "@/components/docs/ChapterLearningGuide";
 import { TableOfContents } from "@/components/docs/TableOfContents";
 import { PrevNext } from "@/components/docs/PrevNext";
 import { Sidebar } from "@/components/docs/Sidebar";
@@ -72,6 +73,7 @@ export default async function ChapterPage({ params }: PageProps) {
             ))}
           </div>
         </div>
+        <ChapterLearningGuide title={chapter.title} section={chapter.sectionTitle} sheet={chapterSource.cheatSheet} />
         <ChapterCheatSheet sheet={chapterSource.cheatSheet} />
         <div className="docs-prose">{content}</div>
         <ChapterSummary summary={chapterSource.cheatSheet.summary} />

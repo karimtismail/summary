@@ -36,6 +36,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           className="h-10 w-full rounded-md border border-border bg-panel pl-9 pr-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-accent/60"
           placeholder="Search topics"
           type="search"
+          suppressHydrationWarning
         />
       </label>
 
