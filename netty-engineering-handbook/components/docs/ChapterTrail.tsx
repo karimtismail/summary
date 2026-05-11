@@ -11,8 +11,8 @@ export function ChapterTrail({ section, slug }: { section: string; slug: string 
   if (!current) return null;
 
   return (
-    <nav aria-label="Learning path" className="mb-8 rounded-xl border border-border bg-card/45 p-4 shadow-inset sm:p-5">
-      <div className="mb-4 flex items-center gap-3">
+    <nav aria-label="Learning path" className="mb-6 rounded-xl border border-border bg-card/45 p-3 shadow-inset sm:mb-8 sm:p-5">
+      <div className="mb-3 flex items-center gap-3 sm:mb-4">
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-panel text-accent">
           <Route className="h-4 w-4" />
         </span>
@@ -21,7 +21,7 @@ export function ChapterTrail({ section, slug }: { section: string; slug: string 
           <p className="mt-1 text-sm leading-6 text-muted">Understand where this lesson sits before reading the API.</p>
         </div>
       </div>
-      <div className="grid gap-2 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2">
         {nearby.map((chapter, index) => {
           if (!chapter) return null;
           const isCurrent = chapter.href === current.href;
@@ -34,16 +34,16 @@ export function ChapterTrail({ section, slug }: { section: string; slug: string 
               aria-current={isCurrent ? "page" : undefined}
               className={
                 isCurrent
-                  ? "rounded-lg border border-accent/45 bg-accent/10 p-3.5 shadow-inset"
-                  : "group rounded-lg border border-border bg-panel p-3.5 transition hover:border-accent/50 hover:bg-card"
+                  ? "rounded-lg border border-accent/45 bg-accent/10 p-2.5 shadow-inset sm:p-3.5"
+                  : "group rounded-lg border border-border bg-panel p-2.5 transition hover:border-accent/50 hover:bg-card sm:p-3.5"
               }
             >
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{label}</p>
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted sm:text-xs sm:tracking-[0.14em]">{label}</p>
                 {index < nearby.length - 1 ? <ArrowRight className="hidden h-3.5 w-3.5 text-muted md:block" /> : null}
               </div>
-              <p className="mt-2 font-medium text-text">{chapter.title}</p>
-              <p className="mt-1 text-sm leading-6 text-muted">{chapter.sectionTitle}</p>
+              <p className="mt-1.5 text-sm font-medium leading-5 text-text sm:mt-2 sm:text-base">{chapter.title}</p>
+              <p className="mt-1 hidden text-sm leading-6 text-muted sm:block">{chapter.sectionTitle}</p>
             </Link>
           );
         })}
