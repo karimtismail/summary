@@ -1,4 +1,4 @@
-name: Handbook CI and GitHub Pages
+name: Deploy Handbook to GitHub Pages
 
 on:
   push:
@@ -24,7 +24,7 @@ env:
   APP_DIR: netty-engineering-handbook
 
 concurrency:
-  group: github-pages
+  group: handbook-github-pages
   cancel-in-progress: false
 
 jobs:
