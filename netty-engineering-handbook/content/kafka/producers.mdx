@@ -32,7 +32,9 @@ Application event -> Partitioner -> Batch accumulator -> Broker leader -> Ack or
 
 ## Runtime behavior
 
-The Kafka producer has background IO threads. `send` usually returns quickly with a future. Actual network writes happen asynchronously. Retries may reorder records unless idempotence and ordering settings are understood.
+The Kafka producer has background IO threads. `send` usually returns quickly with a future. Actual network writes happen asynchronously. Retries can reorder records if idempotence is disabled and multiple in-flight requests are allowed for the same connection.
+
+In Kafka 4.2, `acks=all`, `enable.idempotence=true`, and `linger.ms=5` are defaults when no conflicting producer settings disable them. The example keeps them explicit because correctness settings should be visible in code review.
 
 ## Code example
 
@@ -65,6 +67,7 @@ Batching and compression drive throughput. `linger.ms`, `batch.size`, and compre
 
 - ignoring the callback from `send`
 - using `acks=0` for important events
+- assuming current idempotence defaults still apply after changing retries, acks, or in-flight limits
 - calling `flush` after every record
 - choosing keys that create hot partitions
 - shutting down before in-flight records finish

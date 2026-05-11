@@ -34,11 +34,14 @@ partition 0
 
 When a follower falls too far behind, it leaves the ISR. If ISR size drops below `min.insync.replicas`, producers using `acks=all` receive errors instead of pretending the write is durable.
 
+`unclean.leader.election.enable` changes that tradeoff. Leaving it disabled protects committed data by refusing to elect a replica outside the ISR; enabling it can restore availability at the cost of possible data loss.
+
 ## Code example
 
 ```properties
 replication.factor=3
 min.insync.replicas=2
+unclean.leader.election.enable=false
 
 # producer
 acks=all
@@ -59,6 +62,7 @@ Stronger acknowledgement settings add latency because writes wait for replicatio
 
 - setting replication factor but weak producer `acks`
 - ignoring ISR shrink events
+- enabling unclean leader election without a documented data-loss decision
 - running too many partition leaders on one broker
 - treating replication as backup
 - using durability settings without testing broker failure

@@ -9,7 +9,9 @@ Most Kafka incidents are queueing stories: producers cannot append, brokers cann
 
 ## Intuition
 
-Operating Kafka means watching the event system as a set of logs and queues. Lag, disk usage, request latency, replication health, controller health, and client errors tell the real story.
+Operating Kafka means watching the event system as a set of logs and queues. Lag, disk usage, request latency, replication health, controller quorum health, and client errors tell the real story.
+
+Kafka 4.x runs in KRaft mode. That means the controller quorum is part of the Kafka cluster itself; ZooKeeper-era runbooks, metrics, and configuration names should not be treated as current production guidance.
 
 ## Real-world problem
 
@@ -36,6 +38,8 @@ Producer rate -> Broker append -> Replication -> Consumer fetch -> Handler side 
 
 Kafka stores segment files on disk and relies heavily on OS page cache. Retention deletes old segments by time or size. Compaction keeps the latest record per key for compacted topics.
 
+In current Kafka, metadata is managed by KRaft controllers. Broker health and controller quorum health are separate operational questions, even when broker and controller roles run on the same node.
+
 ## Code example
 
 ```properties
@@ -53,7 +57,7 @@ Retention and compaction are data lifecycle policies, not cleanup afterthoughts.
 
 ## Production implications
 
-Create dashboards for under-replicated partitions, offline partitions, request latency, produce/fetch errors, consumer lag by group, disk usage, controller changes, and rebalance frequency.
+Create dashboards for under-replicated partitions, offline partitions, request latency, produce/fetch errors, consumer lag by group, disk usage, controller quorum health, metadata load, and rebalance frequency.
 
 ## Performance implications
 
@@ -65,6 +69,7 @@ Tune with workload evidence. Partition count, batch size, compression, linger, f
 - using compaction for event history that needs every event
 - creating partitions without capacity planning
 - ignoring disk and page-cache behavior
+- carrying ZooKeeper-era checks into Kafka 4.x without replacing them with KRaft controller checks
 - tuning producers while consumers are the bottleneck
 
 ## Summary

@@ -33,11 +33,15 @@ Poll batch -> Process records -> Commit offsets -> Poll again
 
 Consumers in the same group divide partitions among themselves. If a consumer joins, leaves, or stops heartbeating, Kafka rebalances partition assignments.
 
-Rebalances are normal, but they interrupt work if offset and processing boundaries are sloppy.
+In Kafka 4.2, the classic group protocol remains the default, and Kafka also supports the newer `consumer` group protocol. Heartbeat and session-timeout ownership differs between those modes, so copy consumer tuning from the protocol you actually run.
+
+Rebalances are normal, but they interrupt work if offset and processing boundaries are sloppy. If you commit offsets yourself, disable background auto-commit first.
 
 ## Code example
 
 ```java
+props.put("enable.auto.commit", "false");
+
 while (running) {
     ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
 
@@ -49,7 +53,7 @@ while (running) {
 }
 ```
 
-This commits after processing the batch, which usually means duplicates are possible after a crash.
+This commits after processing the batch, which usually means duplicates are possible after a crash. Without `enable.auto.commit=false`, a background commit may record progress before your processing boundary is complete.
 
 ## Production implications
 
@@ -62,6 +66,7 @@ Throughput depends on fetch sizing, batch processing, partition count, handler s
 ## Common bugs
 
 - committing offsets before side effects complete
+- mixing manual commits with background auto-commit
 - treating consumer lag as always bad without understanding replay
 - blocking too long between polls
 - assuming adding consumers helps beyond partition count
