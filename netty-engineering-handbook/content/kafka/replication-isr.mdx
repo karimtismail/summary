@@ -1,0 +1,68 @@
+---
+title: Replication and ISR
+description: Kafka durability depends on leaders, followers, in-sync replicas, and acknowledgement policy.
+---
+
+<StoryBlock title="Durability Has A Membership List">
+Kafka replication is not just copying data. It is deciding which replicas are caught up enough to be trusted.
+</StoryBlock>
+
+## Intuition
+
+Each partition has a leader replica and follower replicas. Producers write to the leader. Followers replicate from the leader. The in-sync replica set, or ISR, contains replicas that are sufficiently caught up.
+
+## Real-world problem
+
+A producer uses weak acknowledgements. The leader accepts a record and crashes before followers copy it. A new leader is elected without that record, and the event disappears.
+
+## Mental model
+
+Durability is a relationship between replication factor, ISR health, `acks`, and `min.insync.replicas`.
+
+For important data, require the leader and enough in-sync followers to acknowledge before the write is considered successful.
+
+## Visual explanation
+
+<ArchitectureDiagram title="Partition replicas">
+partition 0
+  leader: broker A       offset 100
+  follower: broker B     offset 100   in ISR
+  follower: broker C     offset 96    out of ISR
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+When a follower falls too far behind, it leaves the ISR. If ISR size drops below `min.insync.replicas`, producers using `acks=all` receive errors instead of pretending the write is durable.
+
+## Code example
+
+```properties
+replication.factor=3
+min.insync.replicas=2
+
+# producer
+acks=all
+enable.idempotence=true
+```
+
+This configuration prefers failing writes over accepting records with insufficient replication.
+
+## Production implications
+
+Monitor under-replicated partitions, offline partitions, ISR shrink/expand rates, leader election, and broker disk health. Replication problems are production correctness problems.
+
+## Performance implications
+
+Stronger acknowledgement settings add latency because writes wait for replication. That cost is often acceptable for business events and unacceptable for disposable telemetry.
+
+## Common bugs
+
+- setting replication factor but weak producer `acks`
+- ignoring ISR shrink events
+- running too many partition leaders on one broker
+- treating replication as backup
+- using durability settings without testing broker failure
+
+## Summary
+
+Kafka replication is a live durability system. ISR and acknowledgement policy decide when a write is trustworthy.

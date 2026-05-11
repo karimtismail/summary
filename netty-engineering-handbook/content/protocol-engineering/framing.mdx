@@ -1,0 +1,74 @@
+---
+title: Framing
+description: Framing solves the boundary problem every TCP protocol inherits.
+---
+
+<StoryBlock title="TCP Does Not Know Your Messages">
+If your protocol runs over TCP, the first question is not how to parse a message. It is how to know where a message ends.
+</StoryBlock>
+
+## Intuition
+
+TCP is a byte stream. It may deliver half a message, three messages, or any other chunking pattern. Framing is the protocol rule that turns streams back into message boundaries.
+
+## Real-world problem
+
+A client sends two JSON objects quickly. The server reads once and receives both in the same buffer. Another time it receives half of the first object. A parser that expects one read per message fails both ways.
+
+## Mental model
+
+Common framing strategies:
+
+- fixed-length frames
+- delimiter-based frames
+- length-prefix frames
+- self-describing formats with streaming parsers
+
+Length-prefix framing is common for binary protocols because it is explicit and efficient.
+
+## Visual explanation
+
+<ArchitectureDiagram title="Length-prefix frame">
+0         4                 4 + length
++---------+----------------------+
+| length  | payload bytes        |
++---------+----------------------+
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+A decoder must wait until enough bytes exist for the header, read the length, then wait until enough bytes exist for the payload. Partial input is normal, not exceptional.
+
+## Code example
+
+```java
+pipeline.addLast(new LengthFieldBasedFrameDecoder(
+    1 << 20, // max frame length
+    0,      // length field offset
+    4,      // length field size
+    0,      // length adjustment
+    4       // strip length field
+));
+```
+
+The decoder turns arbitrary TCP chunks into complete frames for later handlers.
+
+## Production implications
+
+Always set maximum frame sizes. A protocol without a maximum frame is an attacker-controlled memory allocation strategy.
+
+## Performance implications
+
+Framing should avoid scanning unbounded buffers. Length fields are fast, but they need validation. Delimiters are convenient, but scanning cost can matter at high throughput.
+
+## Common bugs
+
+- assuming one socket read equals one frame
+- omitting max frame length
+- trusting negative or huge length fields
+- clearing partial input
+- decoding business objects before framing is complete
+
+## Summary
+
+Framing is the first correctness layer above TCP. Get it right before thinking about business messages.

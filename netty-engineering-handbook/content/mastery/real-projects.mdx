@@ -1,0 +1,60 @@
+---
+title: Real Projects
+description: Practice projects that force real understanding of event-driven networking and protocol design.
+---
+
+<StoryBlock title="Understanding Needs A Runtime">
+You do not really understand Netty by reading APIs. You understand it by building something that fails until the mental model is correct.
+</StoryBlock>
+
+## Intuition
+
+Practice should follow the same learning flow as the handbook: blocking IO, selectors, EventLoops, pipelines, framing, backpressure, and production debugging.
+
+## Real-world problem
+
+Tutorial projects often stop at echo servers. Echo servers teach connection setup, but they do not teach partial frames, slow clients, memory ownership, protocol evolution, or operational pressure.
+
+## Mental model
+
+Choose projects that force a specific runtime lesson. Keep the feature small and the behavior sharp.
+
+## Visual explanation
+
+<FlowDiagram title="Project progression">
+Blocking chat -> NIO reactor -> Netty framed protocol -> Backpressured broadcast -> Production diagnostics
+</FlowDiagram>
+
+## Runtime behavior
+
+Each project should include fault injection: partial writes, slow consumers, malformed frames, reconnect storms, large payloads, and downstream delay. The failure is the teacher.
+
+## Code example
+
+```java
+// A useful project requirement:
+// When one client stops reading, other clients must keep receiving messages,
+// memory must remain bounded, and the slow client must be paused or closed.
+```
+
+This requirement teaches more than another happy-path endpoint.
+
+## Production implications
+
+Turn projects into runbooks. For each one, record metrics, failure modes, expected logs, and a debugging path.
+
+## Performance implications
+
+Benchmark only after correctness is stable. Then measure allocation rate, EventLoop delay, write buffer growth, and p99 latency under controlled pressure.
+
+## Common bugs
+
+- building only happy paths
+- skipping malformed input tests
+- ignoring slow readers
+- benchmarking before adding bounds
+- treating generated load as realistic traffic
+
+## Summary
+
+Real projects should make the invisible runtime visible. Build small systems that force you to reason about bytes, queues, threads, and failure.

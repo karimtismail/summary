@@ -1,0 +1,74 @@
+---
+title: Memory
+description: JVM networking performance depends on heap, direct memory, pooling, and reference ownership.
+---
+
+<StoryBlock title="Latency Lives In Memory Behavior">
+For network servers, memory pressure often shows up as tail latency before it shows up as an obvious crash.
+</StoryBlock>
+
+## Intuition
+
+Networking moves bytes continuously. Allocation patterns, direct memory usage, pooling, and object lifetimes shape both throughput and latency.
+
+## Real-world problem
+
+A server has low average latency but frequent spikes. CPU is acceptable. GC logs show promotion pressure from per-request byte arrays and short-lived wrapper objects.
+
+## Mental model
+
+Separate memory into:
+
+- heap objects used by application logic
+- direct buffers used for IO
+- pooled arenas and caches
+- queued outbound messages
+
+Each pool has different failure modes.
+
+## Visual explanation
+
+<FlowDiagram title="Memory pressure path">
+Per-message allocation -> GC pressure -> Pause or CPU overhead -> EventLoop delay -> Tail latency
+</FlowDiagram>
+
+## Runtime behavior
+
+Netty allocators can pool direct buffers. `ByteBuf` reference counts control when memory returns to the pool. If references leak, direct memory pressure can grow while heap looks healthy.
+
+## Code example
+
+```java
+ByteBuf buffer = ctx.alloc().directBuffer(estimateSize);
+try {
+    encode(response, buffer);
+    ctx.write(buffer);
+    buffer = null;
+} finally {
+    if (buffer != null) {
+        buffer.release();
+    }
+}
+```
+
+The handoff to `ctx.write` transfers ownership. The failure path still releases.
+
+## Production implications
+
+Track heap, direct memory, allocation rate, leak detector output, write buffer size, and GC pauses. One graph rarely explains memory behavior by itself.
+
+## Performance implications
+
+Pooling improves steady-state performance when reuse is high. It can hurt if object lifetimes are unclear or if leaks are ignored.
+
+## Common bugs
+
+- converting `ByteBuf` to `byte[]` too early
+- retaining buffers across async boundaries without release
+- watching heap while direct memory grows
+- oversized per-channel queues
+- disabling leak detection everywhere
+
+## Summary
+
+Memory discipline is protocol discipline. Know who owns bytes, how long they live, and where pressure is visible.

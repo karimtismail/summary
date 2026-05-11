@@ -1,0 +1,70 @@
+---
+title: Channels
+description: Channels are selectable IO endpoints that make network progress explicit instead of stream-shaped.
+---
+
+<StoryBlock title="A Channel Is A Handle To Progress">
+Streams hide readiness behind blocking calls. Channels expose IO as operations that may make partial progress.
+</StoryBlock>
+
+## Intuition
+
+A Java NIO channel is not a higher-level stream. It is a lower-level contract with the kernel: try to read, try to write, and be prepared for partial progress.
+
+That contract is the foundation for event-driven Java networking.
+
+## Real-world problem
+
+A server using blocking streams cannot efficiently serve thousands of mostly idle clients. Moving to channels lets the server ask which sockets are ready before spending application time on them.
+
+## Mental model
+
+Think of a channel as a connection endpoint plus readiness state. It does not own the event loop. It participates in one.
+
+Streams say "give me bytes." Channels say "attempt byte movement now."
+
+## Visual explanation
+
+<FlowDiagram title="Channel flow">
+SocketChannel -> register with Selector -> readiness key -> read or write ByteBuffer
+</FlowDiagram>
+
+## Runtime behavior
+
+`SocketChannel` can run in blocking or non-blocking mode. In non-blocking mode, reads and writes return immediately. A read may return zero. A write may write fewer bytes than requested.
+
+Correct code treats every IO call as a progress attempt.
+
+## Code example
+
+```java
+SocketChannel channel = SocketChannel.open();
+channel.configureBlocking(false);
+channel.connect(remoteAddress);
+
+if (channel.finishConnect()) {
+    channel.register(selector, SelectionKey.OP_READ);
+}
+```
+
+Registration connects the channel to a selector so readiness can drive work.
+
+## Production implications
+
+Channel lifecycle must be explicit. Register, update interest ops, handle close, cancel keys, and release buffers with clear ownership. Ambiguous ownership becomes leaks and stuck sockets.
+
+## Performance implications
+
+Channels reduce thread-per-connection pressure, but they do not remove cost. Every readiness cycle still needs careful batching, allocation control, and fair handling across active connections.
+
+## Common bugs
+
+- forgetting `configureBlocking(false)`
+- assuming connect completes immediately
+- writing once and dropping the remaining buffer
+- leaving invalid keys registered
+- treating zero-byte reads as errors
+
+## Summary
+
+Channels make IO readiness and partial progress visible. That visibility is what lets selectors and Netty build scalable event loops.

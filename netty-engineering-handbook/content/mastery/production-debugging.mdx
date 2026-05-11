@@ -1,0 +1,74 @@
+---
+title: Production Debugging
+description: Debug live networking systems with layered evidence instead of guesses.
+---
+
+<StoryBlock title="Debug The Boundary That Failed">
+Production networking incidents become manageable when you identify the failed boundary: accept, connect, TLS, decode, handler, downstream, write, or close.
+</StoryBlock>
+
+## Intuition
+
+A network outage is rarely one signal. It is a stack of symptoms across clients, load balancers, kernels, runtimes, and application handlers.
+
+Good debugging narrows the layer before changing the system.
+
+## Real-world problem
+
+Clients report timeouts. Server CPU is low. The load balancer shows many open connections. Netty write buffers are high. The actual issue is slow clients plus missing backpressure.
+
+## Mental model
+
+Follow the lifecycle:
+
+- can clients connect?
+- can TLS or protocol handshake complete?
+- can frames decode?
+- can handlers finish quickly?
+- can writes drain?
+- do closes look intentional?
+
+## Visual explanation
+
+<FlowDiagram title="Incident path">
+Symptom -> Layer hypothesis -> Runtime metric -> Targeted trace -> Small fix -> Verification
+</FlowDiagram>
+
+## Runtime behavior
+
+Netty gives useful signals if you expose them: EventLoop delay, pending tasks, channel counts, allocator usage, write buffer bytes, decode failures, and exception types.
+
+## Code example
+
+```java
+public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+    metrics.counter("netty.pipeline.exception",
+        "handler", getClass().getSimpleName(),
+        "type", cause.getClass().getSimpleName()
+    ).increment();
+
+    ctx.close();
+}
+```
+
+The handler name and exception type help locate the failing boundary.
+
+## Production implications
+
+Incident dashboards should follow the connection lifecycle. Logs should preserve remote address, channel id, protocol phase, and failure reason without exposing sensitive payloads.
+
+## Performance implications
+
+Debug instrumentation must be cheap by default. Expensive wire logging belongs behind sampling, feature flags, or targeted reproduction.
+
+## Common bugs
+
+- changing timeouts before identifying the stuck queue
+- logging raw payloads during incidents
+- ignoring client-side and load-balancer evidence
+- treating all disconnects as errors
+- forgetting to verify the fix under load
+
+## Summary
+
+Production debugging is a layering exercise. Find the boundary, gather evidence, change the smallest thing, and verify runtime behavior.

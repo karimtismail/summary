@@ -1,0 +1,73 @@
+---
+title: ByteBuf
+description: ByteBuf is Netty's high-performance, reference-counted byte container for network protocols.
+---
+
+<StoryBlock title="Memory Is Part Of The Protocol">
+In high-throughput servers, bytes are not passive data. They are allocated, retained, sliced, pooled, and released.
+</StoryBlock>
+
+## Intuition
+
+Netty's `ByteBuf` improves on `ByteBuffer` with separate reader and writer indexes, pooling support, slicing, composite buffers, and reference counting.
+
+That power comes with stricter ownership rules.
+
+## Real-world problem
+
+A decoder receives a buffer, slices a frame, stores it for later, and returns. Later the frame is corrupt or released. The bug is not decoding logic. It is memory ownership.
+
+## Mental model
+
+Ask two questions every time a `ByteBuf` crosses a handler boundary:
+
+- who owns this reference now?
+- when is it released?
+
+If you retain it, you must release it.
+
+## Visual explanation
+
+<FlowDiagram title="ByteBuf ownership">
+Allocator -> ByteBuf -> Handler consumes or retains -> Reference count changes -> Release
+</FlowDiagram>
+
+## Runtime behavior
+
+`ByteBuf` tracks readable and writable regions separately. Reference-counted buffers are deallocated when their count reaches zero. Derived buffers may share underlying memory.
+
+Leaks usually appear under load because rare paths skip release.
+
+## Code example
+
+```java
+ByteBuf frame = in.readRetainedSlice(length);
+try {
+    ctx.fireChannelRead(frame);
+} catch (Throwable error) {
+    frame.release();
+    throw error;
+}
+```
+
+`readRetainedSlice` makes ownership explicit for the next handler.
+
+## Production implications
+
+Enable leak detection in lower environments and during incident reproduction. Treat leak reports as ownership bugs, not logging noise.
+
+## Performance implications
+
+Pooling and direct memory reduce allocation pressure and copying, but leaks move failures off heap. Monitor direct memory, allocator metrics, and GC behavior together.
+
+## Common bugs
+
+- using a sliced buffer after the parent was released
+- retaining without releasing
+- releasing a buffer passed to another owner
+- converting every message to `byte[]`
+- ignoring leak detector warnings
+
+## Summary
+
+`ByteBuf` is central to Netty performance. Correctness depends on clear ownership and disciplined release behavior.

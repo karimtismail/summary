@@ -1,0 +1,67 @@
+---
+title: Futures
+description: Netty futures represent asynchronous completion without blocking the EventLoop.
+---
+
+<StoryBlock title="Completion Is An Event">
+In Netty, a write is not complete because you called `writeAndFlush`. It is complete when the channel operation finishes.
+</StoryBlock>
+
+## Intuition
+
+Netty futures let code react to asynchronous IO completion. They are not an invitation to block. They are a continuation mechanism for event-driven code.
+
+## Real-world problem
+
+A handler writes a response and immediately closes the channel. Under load, some clients receive truncated data because the close races the write.
+
+The correct action is to close after the write future completes.
+
+## Mental model
+
+Start work, attach listener, return to the EventLoop. The listener is the next step in the workflow.
+
+## Visual explanation
+
+<FlowDiagram title="Async completion">
+writeAndFlush -> ChannelFuture -> IO completes -> listener runs -> next action
+</FlowDiagram>
+
+## Runtime behavior
+
+Listeners are usually notified on the EventLoop. Blocking inside a listener is just as dangerous as blocking inside a handler.
+
+Futures also carry failure, which should be logged or handled at the protocol boundary.
+
+## Code example
+
+```java
+ctx.writeAndFlush(response).addListener((ChannelFuture future) -> {
+    if (!future.isSuccess()) {
+        log.warn("write failed", future.cause());
+        future.channel().close();
+    }
+});
+```
+
+This preserves async flow and keeps failure attached to the write that caused it.
+
+## Production implications
+
+Attach listeners to important writes: authentication failures, protocol errors, large responses, and graceful shutdown messages. Silent write failures create confusing client behavior.
+
+## Performance implications
+
+Listeners are cheap when they are small. They become expensive when they capture large objects, allocate per message, or perform blocking work.
+
+## Common bugs
+
+- calling `sync()` on the EventLoop
+- closing before a write completes
+- ignoring failed futures
+- doing heavy work in listeners
+- assuming listener order substitutes for protocol state
+
+## Summary
+
+Netty futures let completion drive the next step. Use them to preserve event-driven flow without blocking the runtime that makes Netty fast.

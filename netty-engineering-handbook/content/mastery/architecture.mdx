@@ -1,0 +1,75 @@
+---
+title: Architecture
+description: Design networked systems around protocols, queues, ownership, and failure modes.
+---
+
+<StoryBlock title="Architecture Is Runtime Shape">
+A network architecture is not a box diagram. It is a set of queues, protocols, ownership boundaries, and failure policies.
+</StoryBlock>
+
+## Intuition
+
+The best networking architecture makes pressure visible and failure contained. It defines what each service promises on the wire and what happens when that promise cannot be kept.
+
+## Real-world problem
+
+A gateway accepts traffic, decodes custom messages, calls three services, and streams responses. Without explicit boundaries, one downstream slowdown fills gateway memory and degrades unrelated clients.
+
+## Mental model
+
+Design each boundary:
+
+- protocol contract
+- timeout and retry policy
+- backpressure behavior
+- memory ownership
+- observability signals
+- compatibility plan
+
+## Visual explanation
+
+<ArchitectureDiagram title="Boundary-oriented service">
+clients
+  |
+  v
+gateway: frame -> decode -> route -> apply pressure
+  |
+  +--> service A
+  +--> service B
+  +--> service C
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+Every async boundary introduces a queue. Every queue needs a maximum, a metric, and a policy. If the policy is not explicit, the default is usually memory growth.
+
+## Code example
+
+```java
+ChannelOption.WRITE_BUFFER_WATER_MARK;
+ReadTimeoutHandler readTimeout;
+LengthFieldBasedFrameDecoder maxFrameDecoder;
+EventExecutorGroup blockingWorkPool;
+```
+
+These are not just APIs. They are architectural decisions about pressure, time, size, and work placement.
+
+## Production implications
+
+Architecture reviews should ask how the system behaves when clients are slow, downstreams are slow, payloads are large, deploys are mixed-version, and connections are drained.
+
+## Performance implications
+
+Clean boundaries make performance work local. If protocol parsing, business logic, and outbound writes are tangled, every optimization risks changing behavior.
+
+## Common bugs
+
+- drawing services but not queues
+- defining protocols without versioning
+- allowing unbounded fanout
+- hiding blocking work in event handlers
+- treating retries as reliability without budgets
+
+## Summary
+
+Networking architecture is the design of byte contracts under pressure. Make the contracts explicit and the runtime becomes easier to operate.

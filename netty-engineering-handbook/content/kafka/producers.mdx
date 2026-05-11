@@ -1,0 +1,74 @@
+---
+title: Producers
+description: Kafka producers turn application events into partitioned, batched, acknowledged writes.
+---
+
+<StoryBlock title="A Producer Is A Write Pipeline">
+The producer is not just a client library. It batches, partitions, retries, compresses, and waits for acknowledgements.
+</StoryBlock>
+
+## Intuition
+
+Producing to Kafka is an async append workflow. The application creates a record, the producer assigns a partition, batches it with nearby records, sends it to the leader broker, and receives an acknowledgement.
+
+## Real-world problem
+
+A checkout service sends one Kafka request per order event with no batching and weak acknowledgements. Latency looks simple in development, but production throughput is poor and failures lose records.
+
+## Mental model
+
+Producer behavior is shaped by four questions:
+
+- what partition should receive this record?
+- how long can the producer wait to batch?
+- how many replicas must acknowledge?
+- what happens when the send fails?
+
+## Visual explanation
+
+<FlowDiagram title="Producer send path">
+Application event -> Partitioner -> Batch accumulator -> Broker leader -> Ack or retry
+</FlowDiagram>
+
+## Runtime behavior
+
+The Kafka producer has background IO threads. `send` usually returns quickly with a future. Actual network writes happen asynchronously. Retries may reorder records unless idempotence and ordering settings are understood.
+
+## Code example
+
+```java
+Properties props = new Properties();
+props.put("bootstrap.servers", "localhost:9092");
+props.put("acks", "all");
+props.put("enable.idempotence", "true");
+props.put("linger.ms", "5");
+props.put("compression.type", "zstd");
+
+KafkaProducer<String, String> producer = new KafkaProducer<>(
+    props,
+    new StringSerializer(),
+    new StringSerializer()
+);
+```
+
+These settings express a tradeoff between durability, throughput, latency, and duplicate behavior.
+
+## Production implications
+
+Producers need error handling, metrics, delivery callbacks, bounded shutdown, and clear behavior when Kafka is unavailable. Silent async failures are one of the most common production mistakes.
+
+## Performance implications
+
+Batching and compression drive throughput. `linger.ms`, `batch.size`, and compression type should be tested with realistic payloads and latency requirements.
+
+## Common bugs
+
+- ignoring the callback from `send`
+- using `acks=0` for important events
+- calling `flush` after every record
+- choosing keys that create hot partitions
+- shutting down before in-flight records finish
+
+## Summary
+
+Kafka producers are durable async write pipelines. Treat their configuration as part of your correctness and performance design.

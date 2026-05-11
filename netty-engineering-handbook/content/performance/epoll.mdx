@@ -1,0 +1,67 @@
+---
+title: epoll
+description: epoll is the Linux readiness mechanism behind many high-performance event-driven servers.
+---
+
+<StoryBlock title="Readiness At Scale">
+epoll lets a server watch many file descriptors without scanning every connection on every loop.
+</StoryBlock>
+
+## Intuition
+
+On Linux, epoll is a scalable readiness notification API. It tells an event loop which descriptors can make progress.
+
+Netty can use native epoll transport to access Linux-specific behavior beyond the JDK NIO selector path.
+
+## Real-world problem
+
+A service handles many idle connections and a smaller active subset. Waking up to inspect every connection would waste time. epoll focuses attention on descriptors with events.
+
+## Mental model
+
+Register interest once, wait for events, process ready descriptors, update interest when needed.
+
+## Visual explanation
+
+<FlowDiagram title="epoll model">
+Register fd -> Kernel readiness set -> epoll_wait -> EventLoop processes ready fd
+</FlowDiagram>
+
+## Runtime behavior
+
+epoll can be used in level-triggered or edge-triggered modes. With edge-triggered behavior, code must drain readiness carefully or risk missing progress until another edge occurs.
+
+Netty hides much of this complexity, but the runtime cost model still matters.
+
+## Code example
+
+```java
+EventLoopGroup boss = new EpollEventLoopGroup(1);
+EventLoopGroup workers = new EpollEventLoopGroup();
+
+ServerBootstrap bootstrap = new ServerBootstrap()
+    .group(boss, workers)
+    .channel(EpollServerSocketChannel.class);
+```
+
+Native transport should be a measured choice, not a cosmetic change.
+
+## Production implications
+
+Linux transport choices affect deployment, native dependencies, container images, and kernel behavior. Verify the transport actually loads and expose it in startup diagnostics.
+
+## Performance implications
+
+Native epoll can reduce overhead and unlock Linux socket options. The gains depend on workload, kernel, TLS behavior, and application handler cost.
+
+## Common bugs
+
+- assuming native transport is active without checking logs
+- changing transports without load testing
+- blocking EventLoops and blaming epoll
+- ignoring kernel limits such as file descriptors
+- treating edge-triggered behavior as ordinary polling
+
+## Summary
+
+epoll is a readiness engine, not magic. It helps most when the rest of the event-driven design is already disciplined.

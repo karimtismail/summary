@@ -1,0 +1,69 @@
+---
+title: HTTP
+description: HTTP adds request-response semantics, headers, intermediaries, and lifecycle rules on top of transport streams.
+---
+
+<StoryBlock title="HTTP Is A Protocol Family">
+HTTP is not just text over TCP. It is a set of semantics around requests, responses, headers, caching, intermediaries, and connection reuse.
+</StoryBlock>
+
+## Intuition
+
+HTTP gives applications a common language: methods, paths, status codes, headers, bodies, and upgrade mechanisms. Netty gives you the tools to decide how much of that protocol you want to handle directly.
+
+## Real-world problem
+
+A custom server reads bytes and searches for `\r\n\r\n`. It works until chunked transfer, keep-alive, compression, or malformed headers appear. The problem is trying to parse a mature protocol as a string exercise.
+
+## Mental model
+
+Let protocol codecs handle syntax. Put application code behind complete HTTP messages or streamed body chunks, depending on the workload.
+
+## Visual explanation
+
+<FlowDiagram title="HTTP pipeline">
+TCP bytes -> HttpServerCodec -> HttpObjectAggregator or streaming chunks -> Application handler
+</FlowDiagram>
+
+## Runtime behavior
+
+HTTP/1.1 can reuse connections. Requests and responses must preserve ordering on a connection unless pipelining rules are deliberately handled. Large bodies may arrive as chunks.
+
+## Code example
+
+```java
+pipeline.addLast(new HttpServerCodec());
+pipeline.addLast(new HttpObjectAggregator(1 << 20));
+pipeline.addLast(new SimpleChannelInboundHandler<FullHttpRequest>() {
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+        FullHttpResponse response = new DefaultFullHttpResponse(
+            request.protocolVersion(),
+            HttpResponseStatus.OK,
+            Unpooled.copiedBuffer("ok", StandardCharsets.UTF_8)
+        );
+        ctx.writeAndFlush(response);
+    }
+});
+```
+
+Aggregation is convenient, but it must be bounded.
+
+## Production implications
+
+Validate headers, body sizes, method support, idle timeouts, and connection reuse behavior. Intermediaries may change how clients reach your server.
+
+## Performance implications
+
+Aggregating bodies is simple and memory-expensive. Streaming is more complex and often required for large uploads, downloads, and proxy workloads.
+
+## Common bugs
+
+- aggregating unbounded request bodies
+- ignoring keep-alive semantics
+- parsing HTTP manually
+- blocking while streaming a body
+- losing request context during async writes
+
+## Summary
+
+HTTP is a rich application protocol. Use Netty's codecs for syntax and reserve custom code for application semantics.

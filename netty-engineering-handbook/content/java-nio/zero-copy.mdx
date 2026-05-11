@@ -1,0 +1,71 @@
+---
+title: Zero Copy
+description: Zero copy avoids unnecessary movement through user space when transferring bytes.
+---
+
+<StoryBlock title="The Best Copy Is The One You Never Schedule">
+For large byte streams, performance often improves when the application stops touching bytes it does not need to understand.
+</StoryBlock>
+
+## Intuition
+
+Zero copy means avoiding redundant copies between kernel space and user space. It does not mean no bytes move anywhere. It means the application does not copy bytes merely to pass them along.
+
+## Real-world problem
+
+A file server reads file bytes into a heap array and writes them to a socket. The application never inspects the payload. It pays allocation, copy, and cache costs for no product value.
+
+## Mental model
+
+If your application does not need to parse or transform a payload, keep it out of application memory when possible.
+
+## Visual explanation
+
+<FlowDiagram title="Traditional transfer">
+Disk -> Kernel buffer -> User buffer -> Kernel socket buffer -> NIC
+</FlowDiagram>
+
+<FlowDiagram title="Zero-copy style transfer">
+Disk -> Kernel path -> Socket/NIC
+</FlowDiagram>
+
+## Runtime behavior
+
+Java exposes zero-copy file transfer through `FileChannel.transferTo` and related APIs. Netty exposes this idea with file region support when the transport and pipeline allow it.
+
+TLS can change the story because bytes must be encrypted before leaving the process boundary.
+
+## Code example
+
+```java
+try (FileChannel file = FileChannel.open(path, StandardOpenOption.READ)) {
+    long position = 0;
+    while (position < file.size()) {
+        long sent = file.transferTo(position, file.size() - position, socketChannel);
+        if (sent == 0) break;
+        position += sent;
+    }
+}
+```
+
+The loop is still required because the socket may not accept the entire file in one operation.
+
+## Production implications
+
+Zero copy is most useful for static files, replication streams, and payload forwarding. It is less useful when every byte must be parsed, encrypted in user space, compressed, or transformed.
+
+## Performance implications
+
+Benefits can include lower CPU, fewer allocations, less cache pollution, and higher throughput. Measure under realistic TLS, kernel, filesystem, and network conditions.
+
+## Common bugs
+
+- assuming zero copy works the same with TLS
+- forgetting partial `transferTo` progress
+- using it for small payloads where setup cost dominates
+- ignoring OS-specific behavior
+- losing backpressure because file transfer is treated as instantaneous
+
+## Summary
+
+Zero copy is a runtime shortcut around unnecessary application memory. Use it when the application is a byte mover, not a byte interpreter.

@@ -1,0 +1,89 @@
+---
+title: Networking Fundamentals
+description: Build the vocabulary for packets, sockets, latency, throughput, and failure before looking at Java or Netty APIs.
+---
+
+<StoryBlock title="The Network Is A Runtime Boundary">
+Networking code is not just method calls with a wire in the middle. It is a conversation with another process, another kernel, another machine, and a failure domain you do not control.
+</StoryBlock>
+
+## Intuition
+
+A networked program sends bytes into a system that can delay them, split them, reorder observations, drop connections, and lie by omission. The first engineering move is to stop thinking in requests and start thinking in flows.
+
+The application owns intent. The transport owns delivery mechanics. The kernel owns buffers and readiness. The network owns uncertainty.
+
+## Real-world problem
+
+A service looks fast in local tests and stalls in production. CPU is low, but requests pile up. The cause is usually not "the network is slow" as a vague statement. It is a concrete mismatch between arrival rate, socket buffers, application parsing, and downstream capacity.
+
+When those parts are not visible, teams add threads, raise timeouts, or retry harder. That often makes the failure larger.
+
+## Mental model
+
+Think of every connection as four queues:
+
+- bytes waiting in the sender
+- bytes waiting in the sender kernel
+- bytes moving through the network
+- bytes waiting in the receiver kernel
+
+Your application only sees part of that system. A successful `write` usually means the kernel accepted bytes, not that the peer processed them.
+
+## Visual explanation
+
+<FlowDiagram title="One outbound message">
+Application intent -> User-space buffer -> Kernel socket buffer -> Network path -> Peer socket buffer -> Peer application
+</FlowDiagram>
+
+This is why networking APIs feel surprising. The useful boundary is not always the method return. It is the point where ownership of bytes moves to another layer.
+
+## Runtime behavior
+
+The kernel exposes sockets as file descriptors. A descriptor can become readable, writable, closed, or errored. Your process observes those states through blocking calls, readiness APIs, or completion APIs.
+
+At runtime, networking systems are mostly coordination systems: move bytes at the right time, avoid blocking the wrong thread, and apply pressure when the peer or downstream system slows down.
+
+## Code example
+
+```java
+SocketChannel channel = SocketChannel.open();
+channel.configureBlocking(false);
+channel.connect(new InetSocketAddress("example.com", 443));
+
+ByteBuffer outbound = ByteBuffer.wrap("hello\n".getBytes(StandardCharsets.UTF_8));
+
+while (outbound.hasRemaining()) {
+    int written = channel.write(outbound);
+    if (written == 0) {
+        // The socket is not ready for more bytes right now.
+        break;
+    }
+}
+```
+
+The code is small, but the idea is large: progress is conditional. A non-blocking write may write some bytes, all bytes, or no bytes.
+
+## Production implications
+
+Production networking work requires observability at the boundaries: connection counts, accept rate, read rate, write backlog, decode errors, timeout causes, and downstream latency.
+
+Without these signals, outages look mystical. With them, they become queueing problems.
+
+## Performance implications
+
+Performance is not only throughput. It is also latency distribution, allocation rate, syscall count, context switching, lock contention, and cache behavior.
+
+The fastest network server usually does less: fewer copies, fewer wakeups, fewer allocations, and fewer handoffs between threads.
+
+## Common bugs
+
+- assuming `write` means the peer received the message
+- assuming one `read` equals one application message
+- retrying without backpressure
+- using timeouts as a substitute for flow control
+- hiding socket failures behind generic IO exceptions
+
+## Summary
+
+Network programming is the discipline of managing byte movement across unreliable boundaries. Java NIO and Netty exist to make that movement explicit, scalable, and controllable.

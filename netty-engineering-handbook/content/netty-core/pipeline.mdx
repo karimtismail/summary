@@ -1,0 +1,76 @@
+---
+title: Pipeline
+description: The ChannelPipeline turns inbound and outbound events into a protocol assembly line.
+---
+
+<StoryBlock title="Protocol Work Has Direction">
+Inbound bytes become messages. Outbound messages become bytes. The pipeline gives that movement a visible structure.
+</StoryBlock>
+
+## Intuition
+
+A Netty pipeline is an ordered chain of handlers attached to a channel. Inbound events flow one way. Outbound events flow the other way.
+
+This separates protocol concerns without losing runtime ordering.
+
+## Real-world problem
+
+A server handles TLS, HTTP decoding, authentication, request routing, compression, and writes. Putting all of that into one callback creates a fragile protocol blob.
+
+The pipeline lets each transformation own one boundary.
+
+## Mental model
+
+Inbound handlers interpret what arrived. Outbound handlers prepare what leaves.
+
+Handlers should be narrow enough to reason about and explicit about what message type they consume and produce.
+
+## Visual explanation
+
+<ArchitectureDiagram title="Pipeline direction">
+Inbound:
+socket bytes -> TLS -> frame decoder -> message decoder -> application handler
+
+Outbound:
+application response -> encoder -> frame writer -> TLS -> socket bytes
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+Inbound events start near the transport and move toward the tail. Outbound events usually start near the current context and move toward the head.
+
+Handler ordering is therefore protocol behavior, not decoration.
+
+## Code example
+
+```java
+protected void initChannel(SocketChannel ch) {
+    ChannelPipeline p = ch.pipeline();
+    p.addLast(new LengthFieldBasedFrameDecoder(1 << 20, 0, 4, 0, 4));
+    p.addLast(new MessageDecoder());
+    p.addLast(new MessageEncoder());
+    p.addLast(new ApplicationHandler());
+}
+```
+
+Framing comes before message decoding because the decoder needs complete frames.
+
+## Production implications
+
+Keep pipeline composition observable. Log handler names in protocol errors, expose decode failure counts, and keep version-specific handlers isolated.
+
+## Performance implications
+
+Every handler boundary has overhead, but clear boundaries often improve performance work because bottlenecks are measurable. Avoid handlers that allocate or transform without adding semantic value.
+
+## Common bugs
+
+- placing encoders and decoders in the wrong order
+- swallowing exceptions without closing or responding
+- sharing non-sharable handlers
+- doing business blocking work in protocol handlers
+- firing inbound events twice or not at all
+
+## Summary
+
+The pipeline is the executable shape of your protocol. Design it like architecture, not like callback storage.

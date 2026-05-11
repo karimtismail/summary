@@ -1,0 +1,72 @@
+---
+title: Transactions and Idempotence
+description: Idempotent producers and transactions reduce duplicates and tie Kafka reads to Kafka writes.
+---
+
+<StoryBlock title="Duplicates Are A Design Input">
+Distributed systems retry. Retries create duplicate attempts. Kafka's advanced producer features help when duplicates must not become duplicate log entries or output effects.
+</StoryBlock>
+
+## Intuition
+
+Idempotence prevents duplicate records caused by producer retries within a producer session. Transactions let a consumer read input records, produce output records, and commit offsets as one atomic Kafka transaction.
+
+## Real-world problem
+
+A stream processor reads orders and writes invoices. It crashes after writing invoices but before committing input offsets. Without transactions, replay can write duplicate invoices to the output topic.
+
+## Mental model
+
+Idempotence protects producer retries. Transactions protect Kafka-to-Kafka processing boundaries.
+
+They do not automatically make external side effects exactly once.
+
+## Visual explanation
+
+<FlowDiagram title="Transactional stream step">
+Read input -> Begin transaction -> Write output -> Send offsets to transaction -> Commit transaction
+</FlowDiagram>
+
+## Runtime behavior
+
+A transactional producer has a `transactional.id`. Kafka uses producer epochs and transaction markers to fence old producer instances and expose committed records to consumers using `read_committed`.
+
+## Code example
+
+```java
+producer.initTransactions();
+
+producer.beginTransaction();
+try {
+    for (ConsumerRecord<String, Order> record : records) {
+        producer.send(toInvoice(record));
+    }
+    producer.sendOffsetsToTransaction(offsets, consumer.groupMetadata());
+    producer.commitTransaction();
+} catch (Exception error) {
+    producer.abortTransaction();
+    throw error;
+}
+```
+
+The output records and offset progress commit together.
+
+## Production implications
+
+Transactional IDs must be stable per processing instance and fenced correctly during deploys. Consumers that require committed output should use `isolation.level=read_committed`.
+
+## Performance implications
+
+Transactions add coordination and can reduce throughput if batches are too small. The transaction boundary should contain meaningful work without becoming too large to recover cleanly.
+
+## Common bugs
+
+- using random `transactional.id` values on restart
+- expecting transactions to cover database writes automatically
+- forgetting `read_committed` on downstream consumers
+- making one enormous transaction
+- not handling producer fencing errors
+
+## Summary
+
+Idempotence and transactions are powerful Kafka guarantees within clear boundaries. Use them for duplicate-resistant Kafka workflows and pair them with application idempotency elsewhere.

@@ -1,0 +1,69 @@
+---
+title: Encoders
+description: Encoders turn semantic messages into stable wire formats that can evolve safely.
+---
+
+<StoryBlock title="The Wire Format Is A Promise">
+Once clients depend on your bytes, an encoder is not just implementation. It is compatibility policy.
+</StoryBlock>
+
+## Intuition
+
+Encoding is where application meaning becomes wire format. The encoder decides field order, byte order, lengths, version markers, and optional data.
+
+Good encoders are boring because their output is predictable.
+
+## Real-world problem
+
+A service adds a field to a binary response without a version marker or length-delimited extension area. Older clients misread the rest of the frame.
+
+## Mental model
+
+Treat the encoder as a serializer plus a compatibility boundary. It should know the protocol version and produce frames older clients can either understand or reject cleanly.
+
+## Visual explanation
+
+<FlowDiagram title="Outbound protocol path">
+Domain response -> Versioned message -> Encoder -> Framed bytes -> Socket write
+</FlowDiagram>
+
+## Runtime behavior
+
+Netty encoders run outbound. They often allocate an output `ByteBuf`, write header fields, serialize payloads, then pass bytes toward the transport.
+
+## Code example
+
+```java
+protected void encode(ChannelHandlerContext ctx, Response msg, ByteBuf out) {
+    int start = out.writerIndex();
+    out.writeInt(0); // reserve length
+    out.writeByte(msg.version());
+    out.writeLong(msg.requestId());
+    writePayload(out, msg.payload());
+
+    int length = out.writerIndex() - start - Integer.BYTES;
+    out.setInt(start, length);
+}
+```
+
+Reserving the length lets the encoder fill it after the payload is known.
+
+## Production implications
+
+Capture wire-format compatibility in tests. Golden byte tests are useful because they detect accidental changes to protocol output.
+
+## Performance implications
+
+Encoding can become allocation-heavy. Prefer writing into provided buffers, sizing buffers reasonably, and avoiding intermediate strings or arrays.
+
+## Common bugs
+
+- changing field order without a version plan
+- using platform-default character encodings
+- forgetting byte order
+- writing a length before knowing the final payload
+- allocating temporary arrays for every field
+
+## Summary
+
+Encoders are compatibility machinery. Make the wire format explicit, versioned, and tested.

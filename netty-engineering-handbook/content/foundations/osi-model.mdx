@@ -1,0 +1,81 @@
+---
+title: OSI Model
+description: Use the OSI model as a practical debugging map, not a memorization exercise.
+---
+
+<StoryBlock title="A Debugging Map">
+The OSI model is useful when it helps you ask where a failure lives. It is less useful when it becomes trivia.
+</StoryBlock>
+
+## Intuition
+
+Every network failure has a layer. A DNS issue, TLS handshake failure, TCP reset, malformed frame, and invalid business payload are different classes of failure. Treating them as the same "network error" wastes time.
+
+The OSI model gives names to boundaries so engineers can move from symptom to evidence.
+
+## Real-world problem
+
+A client says "the API is down." The server says "no errors." The load balancer logs show resets. The packet capture shows SYNs, but no completed TLS handshake.
+
+If the team jumps straight to application logs, it misses the actual layer.
+
+## Mental model
+
+Use layers as a narrowing tool:
+
+- physical and link: can frames move locally?
+- network: can packets route?
+- transport: can endpoints form a connection?
+- session and presentation: can encryption and encoding agree?
+- application: can the protocol and business rule complete?
+
+## Visual explanation
+
+<ArchitectureDiagram title="Pragmatic layer stack">
+Application protocol   HTTP, Redis, MQTT, custom binary
+Presentation           TLS, compression, serialization
+Transport              TCP, UDP, QUIC
+Network                IP routing
+Link                   Ethernet, Wi-Fi, VLANs
+</ArchitectureDiagram>
+
+The exact textbook layer names matter less than the operational question: where did the expected transition fail?
+
+## Runtime behavior
+
+In a Java server, multiple layers collapse into one stack trace. A `SocketException` may reflect transport state. An `SSLException` may reflect presentation negotiation. A decoder exception may reflect application framing.
+
+Netty makes those boundaries visible by modeling protocol work as handlers in a pipeline.
+
+## Code example
+
+```java
+pipeline.addLast("tls", sslContext.newHandler(alloc));
+pipeline.addLast("http-codec", new HttpServerCodec());
+pipeline.addLast("aggregator", new HttpObjectAggregator(1 << 20));
+pipeline.addLast("app", new ApiHandler());
+```
+
+The pipeline is a practical layer stack. Bytes become TLS records, then HTTP messages, then application decisions.
+
+## Production implications
+
+Runbooks should name the layer under investigation. "Check networking" is not precise. "Verify SYN/SYN-ACK, TLS handshake, HTTP decode, and application route" is actionable.
+
+Logs should preserve layer-specific errors instead of flattening everything into 500 responses.
+
+## Performance implications
+
+Every layer adds work: encryption, parsing, decompression, allocation, validation, and dispatch. When latency matters, measure where time is spent instead of assuming the application handler is the bottleneck.
+
+## Common bugs
+
+- debugging TLS failures as application failures
+- logging all connection closes as server errors
+- treating decoder failures as malicious traffic without evidence
+- mixing framing, validation, and business logic in one handler
+- hiding layer boundaries behind broad exception handlers
+
+## Summary
+
+The OSI model earns its place when it shortens debugging. In Netty, the pipeline turns that layered thinking into executable structure.

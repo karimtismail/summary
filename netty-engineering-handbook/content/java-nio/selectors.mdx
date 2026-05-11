@@ -1,0 +1,82 @@
+---
+title: Selectors
+description: Selectors let one thread observe readiness across many channels.
+---
+
+<StoryBlock title="The Scaling Turn">
+Selectors solve the blocking IO problem by moving waiting out of application threads and into the kernel readiness mechanism.
+</StoryBlock>
+
+## Intuition
+
+A selector is a readiness multiplexer. Instead of one thread waiting inside one socket, one thread asks the kernel which registered sockets can make progress.
+
+That is the conceptual ancestor of the Netty EventLoop.
+
+## Real-world problem
+
+Thousands of connections are idle, but any one of them may send data. You need to react quickly without dedicating thousands of blocked threads.
+
+## Mental model
+
+The selector loop is simple:
+
+1. wait for readiness
+2. inspect selected keys
+3. perform bounded work
+4. update interest ops
+5. repeat
+
+The hard part is fairness and state ownership.
+
+## Visual explanation
+
+<FlowDiagram title="Selector loop">
+select -> selected keys -> read/write/accept/connect -> update interest ops -> select again
+</FlowDiagram>
+
+## Runtime behavior
+
+Channels register with a selector using interest operations such as read, write, accept, and connect. When the selector wakes, selected keys describe operations that should not block immediately.
+
+Readiness is not a guarantee of complete application work. It is a signal to try.
+
+## Code example
+
+```java
+while (running) {
+    selector.select();
+    Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+
+    while (keys.hasNext()) {
+        SelectionKey key = keys.next();
+        keys.remove();
+
+        if (!key.isValid()) continue;
+        if (key.isReadable()) readFrom((SocketChannel) key.channel());
+        if (key.isWritable()) flushTo((SocketChannel) key.channel());
+    }
+}
+```
+
+Removing selected keys matters. Otherwise the same event can be processed repeatedly.
+
+## Production implications
+
+Selector loops should avoid unbounded work per key. A single noisy connection must not starve other connections. Netty enforces this discipline with EventLoop tasks, channel pipelines, and write buffers.
+
+## Performance implications
+
+Selectors reduce thread count, but they make event-loop blocking more dangerous. Any slow task blocks progress for every channel assigned to that loop.
+
+## Common bugs
+
+- registering OP_WRITE all the time
+- doing CPU-heavy work in the selector loop
+- failing to remove selected keys
+- sharing channel state across loops without synchronization
+- assuming readiness means a full message is available
+
+## Summary
+
+Selectors are the bridge from thread-per-connection servers to event-driven servers. Netty packages that model into a safer runtime.

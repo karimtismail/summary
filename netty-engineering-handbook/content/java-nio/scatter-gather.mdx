@@ -1,0 +1,73 @@
+---
+title: Scatter Gather
+description: Scatter/gather IO moves structured bytes across multiple buffers without forcing one temporary array.
+---
+
+<StoryBlock title="Messages Are Often Already Segmented">
+A protocol message may have a header, metadata, and payload. Scatter/gather lets the IO layer respect that shape.
+</StoryBlock>
+
+## Intuition
+
+Scatter reads fill multiple buffers from one channel operation. Gather writes drain multiple buffers into one channel operation.
+
+The goal is not cleverness. The goal is fewer copies and cleaner ownership.
+
+## Real-world problem
+
+A server writes a fixed header and a large file-backed payload. Combining them into one array would copy bytes just to satisfy an API shape.
+
+Gathering writes can send both buffers as one logical operation.
+
+## Mental model
+
+Keep protocol parts separate until the kernel needs to see them as a byte sequence.
+
+Header buffer, length buffer, payload buffer, and checksum buffer can remain distinct while still being written in order.
+
+## Visual explanation
+
+<FlowDiagram title="Gathering write">
+Header ByteBuffer -> Payload ByteBuffer -> channel.write(buffers) -> ordered bytes on socket
+</FlowDiagram>
+
+## Runtime behavior
+
+The channel advances each buffer position as bytes are written. A partial write may consume the header and only part of the payload. The application must keep the buffer array until all buffers are drained.
+
+## Code example
+
+```java
+ByteBuffer header = ByteBuffer.allocate(8);
+header.putInt(payload.remaining());
+header.putInt(version);
+header.flip();
+
+ByteBuffer[] message = { header, payload };
+while (hasRemaining(message)) {
+    long written = channel.write(message);
+    if (written == 0) break;
+}
+```
+
+The loop still matters because gathering does not eliminate partial writes.
+
+## Production implications
+
+Scatter/gather is useful for file transfer, binary protocols, TLS-adjacent framing, and systems where payload ownership should remain separate from metadata ownership.
+
+## Performance implications
+
+The benefit is copy avoidance and fewer syscalls in the right workload. The cost is more careful bookkeeping around partially consumed buffers.
+
+## Common bugs
+
+- dropping the buffer array after a partial write
+- assuming all buffers advance together
+- using scatter/gather for tiny messages where complexity brings no benefit
+- mutating a payload buffer while it is queued for write
+- forgetting that TLS layers may change copy behavior
+
+## Summary
+
+Scatter/gather IO is a precision tool. It keeps structured messages structured while still giving the kernel an efficient byte sequence.

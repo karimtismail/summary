@@ -1,0 +1,70 @@
+---
+title: Decoders
+description: Decoders turn complete or partial bytes into semantic messages without corrupting stream state.
+---
+
+<StoryBlock title="A Decoder Is A State Machine">
+Decoding is not a one-shot parse. It is a careful state transition across partial input.
+</StoryBlock>
+
+## Intuition
+
+Decoders must be patient. If there are not enough bytes, they return and wait for more. If there are enough bytes, they consume exactly one message boundary and emit a typed object.
+
+## Real-world problem
+
+A decoder reads a length field, discovers the payload is incomplete, and forgets to reset the reader index. The next read starts in the wrong place and every future frame is corrupt.
+
+## Mental model
+
+Decode only when you can complete the transition. Mark reader state before speculative reads, or use Netty decoders that manage cumulation carefully.
+
+## Visual explanation
+
+<FlowDiagram title="Decoder loop">
+Receive bytes -> Check enough header -> Check enough payload -> Emit message -> Keep unread tail
+</FlowDiagram>
+
+## Runtime behavior
+
+Netty's `ByteToMessageDecoder` accumulates inbound bytes and calls `decode` repeatedly while progress is possible. If your decoder consumes bytes without emitting or waiting correctly, it can spin or corrupt data.
+
+## Code example
+
+```java
+protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+    if (in.readableBytes() < 4) return;
+
+    in.markReaderIndex();
+    int length = in.readInt();
+
+    if (in.readableBytes() < length) {
+        in.resetReaderIndex();
+        return;
+    }
+
+    out.add(new Message(in.readRetainedSlice(length)));
+}
+```
+
+The reader index reset protects partial frames.
+
+## Production implications
+
+Decoder failures should include protocol version, remote address, frame size, and reason. Do not log raw payloads unless privacy and volume are controlled.
+
+## Performance implications
+
+Avoid copying payloads unless the next layer needs independent ownership. Use retained slices carefully and release them downstream.
+
+## Common bugs
+
+- advancing the reader index before a complete frame exists
+- emitting mutable buffers without ownership rules
+- catching decode errors and continuing with corrupt state
+- allocating objects during speculative parses
+- missing protocol version checks
+
+## Summary
+
+Decoders are state machines under backpressure and partial input. Correctness comes from consuming only what you can prove is complete.

@@ -1,0 +1,80 @@
+---
+title: Brokers, Topics, and Partitions
+description: Brokers store topic partitions, and partitions are the unit of ordering, parallelism, and scale.
+---
+
+<StoryBlock title="A Topic Is Not One Big File">
+Kafka scales a topic by splitting it into partitions. Each partition is an ordered log, and brokers distribute those logs across the cluster.
+</StoryBlock>
+
+## Intuition
+
+A broker is a Kafka server. A topic is a named stream. A partition is the actual ordered log inside that stream.
+
+Kafka gives ordering inside a partition, not across all partitions in a topic.
+
+## Real-world problem
+
+An event stream receives 100,000 order updates per second. One ordered log on one machine becomes a bottleneck. Splitting the topic into partitions lets many brokers store and serve the stream in parallel.
+
+## Mental model
+
+Partitions are the central unit:
+
+- producers choose a partition
+- brokers store partitions
+- consumers read partitions
+- ordering exists within a partition
+- parallelism increases with partition count
+
+## Visual explanation
+
+<ArchitectureDiagram title="Topic spread across brokers">
+orders.events
+  partition 0 -> broker A
+  partition 1 -> broker B
+  partition 2 -> broker C
+
+consumer group
+  member 1 reads partition 0
+  member 2 reads partition 1
+  member 3 reads partition 2
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+When a producer sends a record with a key, Kafka's partitioner maps that key to a partition. Records with the same key usually land on the same partition, preserving per-key order.
+
+When a consumer group reads a topic, Kafka assigns partitions to group members.
+
+## Code example
+
+```java
+ProducerRecord<String, String> record =
+    new ProducerRecord<>("orders.events", customerId, eventJson);
+
+// Same key usually maps to the same partition.
+producer.send(record);
+```
+
+The key is not just metadata. It is often your ordering and scaling decision.
+
+## Production implications
+
+Choose partition keys by access pattern and ordering needs. A low-cardinality key can create hot partitions. A random key can destroy useful ordering.
+
+## Performance implications
+
+More partitions can increase parallelism, but they also increase metadata, open files, leader election work, and recovery cost. Partition count is capacity design, not a free slider.
+
+## Common bugs
+
+- expecting total topic ordering with multiple partitions
+- using a low-cardinality key such as region for high-volume traffic
+- creating too many tiny topics
+- changing partition count without understanding key remapping
+- assuming consumers scale beyond partition count
+
+## Summary
+
+Brokers host partitions, and partitions define Kafka's real ordering and scaling behavior. Design the partition key as carefully as an API.

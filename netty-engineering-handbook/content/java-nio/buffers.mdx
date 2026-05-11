@@ -1,0 +1,77 @@
+---
+title: Buffers
+description: ByteBuffer is the memory protocol between your Java code, channels, and the operating system.
+---
+
+<StoryBlock title="The Buffer Is The Contract">
+Network APIs do not move objects. They move bytes. Buffers are where object-shaped thinking becomes byte-shaped reality.
+</StoryBlock>
+
+## Intuition
+
+A buffer has capacity, position, and limit. Those three values decide where bytes can be written, where bytes can be read, and how much space remains.
+
+Most NIO bugs are not syntax bugs. They are state transition bugs.
+
+## Real-world problem
+
+A decoder reads from a socket and sometimes skips bytes or repeats old bytes. The parser is blamed, but the real bug is a missing `flip`, `compact`, or bounds check.
+
+## Mental model
+
+Use two modes:
+
+- write mode: channel writes bytes into the buffer
+- read mode: application reads bytes out of the buffer
+
+`flip` changes from write mode to read mode. `compact` keeps unread bytes and prepares for more input.
+
+## Visual explanation
+
+<FlowDiagram title="Buffer lifecycle">
+clear or compact -> channel read -> flip -> decode bytes -> compact unread tail
+</FlowDiagram>
+
+## Runtime behavior
+
+`ByteBuffer` stores a cursor in `position`. Reads and writes mutate that cursor. The channel does not know your message boundaries. The buffer only knows byte ranges.
+
+That is why decoders must be careful around partial frames.
+
+## Code example
+
+```java
+int read = channel.read(buffer);
+if (read > 0) {
+    buffer.flip();
+    while (hasCompleteFrame(buffer)) {
+        Frame frame = decode(buffer);
+        handle(frame);
+    }
+    buffer.compact();
+}
+```
+
+The important line is `compact`. It preserves a partial frame for the next socket read.
+
+## Production implications
+
+Buffers need ownership rules. Who can mutate the position? Who can retain memory? Who releases pooled memory? Netty answers these questions with `ByteBuf` and reference counts.
+
+## Performance implications
+
+Heap buffers are managed by the JVM. Direct buffers can be used by native IO with fewer copies, but they introduce off-heap pressure and allocation cost.
+
+Pooling matters when allocation rate becomes part of tail latency.
+
+## Common bugs
+
+- reading without flipping
+- clearing a buffer that contains a partial frame
+- assuming buffer capacity equals available message size
+- sharing mutable buffers across threads
+- allocating a new buffer per read
+
+## Summary
+
+Buffers are small state machines. Understanding them makes selectors, decoders, and Netty `ByteBuf` behavior much easier to reason about.

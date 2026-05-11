@@ -1,0 +1,68 @@
+---
+title: EventLoop
+description: The EventLoop is the single-threaded execution lane that gives each channel predictable ordering.
+---
+
+<StoryBlock title="One Lane Per Channel">
+Netty's EventLoop is not just a thread. It is an ordering guarantee for channel IO and channel tasks.
+</StoryBlock>
+
+## Intuition
+
+An EventLoop owns a set of channels and runs their IO events, scheduled tasks, and pipeline callbacks on one thread. That model reduces locking because channel state is usually touched by the same execution lane.
+
+## Real-world problem
+
+Without a clear threading model, a decoder, writer, timeout task, and business handler can mutate the same connection state at the same time. Bugs become timing dependent.
+
+The EventLoop narrows that surface.
+
+## Mental model
+
+Each channel is assigned to one EventLoop. Do quick IO work on that loop. Offload blocking or CPU-heavy work elsewhere. Return results back to the channel through the EventLoop.
+
+## Visual explanation
+
+<FlowDiagram title="EventLoop ownership">
+Socket readiness -> EventLoop thread -> ChannelPipeline -> Handler callbacks -> queued writes
+</FlowDiagram>
+
+## Runtime behavior
+
+The EventLoop selects ready channels, runs IO callbacks, drains task queues, and flushes writes. If a handler blocks, every channel assigned to that EventLoop waits.
+
+That is the central Netty rule: never block the EventLoop.
+
+## Code example
+
+```java
+public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    EventLoop loop = ctx.channel().eventLoop();
+    loop.execute(() -> {
+        // Runs later on the same EventLoop, preserving channel ordering.
+        ctx.writeAndFlush(msg);
+    });
+}
+```
+
+This is safe for channel state, but it still must be fast.
+
+## Production implications
+
+Monitor EventLoop pending tasks, long callbacks, blocked thread stack traces, and write backlog. A single slow handler can degrade many connections.
+
+## Performance implications
+
+The model avoids many locks and context switches, but it concentrates latency risk. Keep EventLoop work bounded, allocation-light, and non-blocking.
+
+## Common bugs
+
+- doing database calls in a handler
+- waiting on a `Future` inside the EventLoop
+- scheduling unbounded tasks back onto the loop
+- assuming more EventLoops always improves throughput
+- sharing mutable handler state across channels
+
+## Summary
+
+The EventLoop is the heart of Netty's runtime. Respect its single-threaded contract and it gives you predictable, scalable IO.

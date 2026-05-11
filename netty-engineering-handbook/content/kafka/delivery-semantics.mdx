@@ -1,0 +1,65 @@
+---
+title: Delivery Semantics
+description: Delivery semantics describe what can happen when processing fails, retries, or restarts.
+---
+
+<StoryBlock title="Every Guarantee Has A Failure Story">
+At-most-once, at-least-once, and exactly-once are not slogans. They are answers to what happens around crashes and retries.
+</StoryBlock>
+
+## Intuition
+
+Delivery semantics describe duplicate and loss behavior. Kafka gives primitives, but the end-to-end guarantee depends on producers, consumers, offset commits, side effects, and downstream systems.
+
+## Real-world problem
+
+A consumer charges a credit card and crashes before committing the offset. On restart, it reads the same event again. Kafka worked correctly. The application was not idempotent.
+
+## Mental model
+
+Semantics by failure mode:
+
+- at-most-once: records may be lost, not duplicated
+- at-least-once: records may duplicate, not silently disappear after processing starts
+- exactly-once: duplicate effects are prevented inside a defined transactional boundary
+
+## Visual explanation
+
+<FlowDiagram title="At-least-once failure">
+Read record -> Apply side effect -> Crash before commit -> Replay -> Side effect may repeat
+</FlowDiagram>
+
+## Runtime behavior
+
+Kafka can provide idempotent producers and transactions for Kafka-to-Kafka workflows. External systems still need idempotency keys, transactional writes, or reconciliation.
+
+## Code example
+
+```java
+// Use the event id as an idempotency key in the side-effect store.
+if (repository.markProcessed(event.id())) {
+    applyBusinessEffect(event);
+}
+```
+
+This application-level guard often matters more than the broker setting.
+
+## Production implications
+
+Document each consumer's semantics. Payment, email, analytics, and cache invalidation do not need the same behavior. Make duplicate handling visible in logs and metrics.
+
+## Performance implications
+
+Stronger semantics usually add coordination, storage, or transactional cost. Use them where the business effect needs them, not everywhere by default.
+
+## Common bugs
+
+- claiming exactly-once for workflows that call external APIs
+- committing offsets before processing
+- missing idempotency keys
+- retrying poison records forever
+- using one error policy for all event types
+
+## Summary
+
+Delivery semantics are end-to-end properties. Kafka supplies tools, but the application decides whether duplicates become harmless or dangerous.

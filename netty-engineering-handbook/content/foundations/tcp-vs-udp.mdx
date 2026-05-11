@@ -1,0 +1,78 @@
+---
+title: TCP vs UDP
+description: Understand TCP and UDP as two transport philosophies with different correctness, latency, and protocol design costs.
+---
+
+<StoryBlock title="Two Different Philosophies">
+TCP optimizes for ordered, reliable byte streams. UDP optimizes for minimal transport machinery and leaves reliability decisions to the application.
+</StoryBlock>
+
+## Intuition
+
+TCP is a conversation with memory. UDP is a message sent without a built-in conversation. Neither is universally better. They optimize different failure contracts.
+
+Choose TCP when ordering and reliable delivery are part of the product expectation. Choose UDP when timeliness, custom recovery, multicast-style behavior, or protocol-level control matters more.
+
+## Real-world problem
+
+A multiplayer game cannot wait for an old position update to be retransmitted before receiving the newest position. A payment API cannot silently drop a transfer request because the network was congested.
+
+Both systems need networking. They do not need the same transport semantics.
+
+## Mental model
+
+TCP gives you a reliable byte stream, not messages. UDP gives you datagrams, not reliability.
+
+That difference shapes the protocol above it. TCP protocols need framing. UDP protocols need loss tolerance, sequencing, or idempotency when correctness matters.
+
+## Visual explanation
+
+<FlowDiagram title="Transport behavior">
+TCP send -> ACK tracking -> retransmission -> ordered byte stream
+</FlowDiagram>
+
+<FlowDiagram title="Datagram behavior">
+UDP send -> best effort delivery -> application decides recovery
+</FlowDiagram>
+
+## Runtime behavior
+
+TCP manages sequence numbers, acknowledgements, retransmission, congestion windows, and flow control. The application reads a stream of bytes that may arrive in arbitrary chunk sizes.
+
+UDP sends discrete datagrams. A receive operation gets one datagram at a time, but delivery is not guaranteed and large datagrams may be fragmented below your application.
+
+## Code example
+
+```java
+// TCP: read bytes, then frame messages yourself.
+int read = tcpChannel.read(buffer);
+
+// UDP: receive one datagram, then decide what reliability means.
+SocketAddress sender = udpChannel.receive(datagramBuffer);
+```
+
+The API shape reveals the contract. TCP gives a stream. UDP gives datagrams.
+
+## Production implications
+
+TCP services need attention to connection lifecycle, backpressure, keepalive behavior, and half-open connections. UDP services need attention to loss, amplification, spoofing, packet sizing, and replay behavior.
+
+TCP moves some complexity into the kernel. UDP moves more complexity into your protocol.
+
+## Performance implications
+
+TCP can suffer from head-of-line blocking when an older segment is missing. UDP can avoid that, but the application pays for correctness if it needs it.
+
+TCP also has congestion control and flow control built in. UDP systems must avoid becoming unfair or dangerous during congestion.
+
+## Common bugs
+
+- assuming TCP preserves application message boundaries
+- using UDP for correctness-sensitive workflows without idempotency
+- ignoring TCP backpressure because local writes appear successful
+- sending UDP payloads too large for the path MTU
+- treating retransmission as free
+
+## Summary
+
+TCP and UDP are not speed labels. They are contracts. Protocol engineering begins by choosing the contract whose failure mode your product can actually handle.

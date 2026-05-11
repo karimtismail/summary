@@ -1,0 +1,76 @@
+---
+title: Stream Processing
+description: Stream processing turns Kafka topics into continuous computations with state, windows, joins, and changelogs.
+---
+
+<StoryBlock title="A Stream Processor Is A Database In Motion">
+Stateful stream processing is not just consuming messages quickly. It maintains evolving state from an event log.
+</StoryBlock>
+
+## Intuition
+
+Stream processing reads events continuously, updates state, and emits new events. It is useful for aggregations, enrichment, joins, fraud signals, materialized views, and real-time workflows.
+
+## Real-world problem
+
+A dashboard needs order totals per merchant every minute. Querying the transactional database for every refresh is expensive and delayed. A stream processor can maintain the running aggregate as events arrive.
+
+## Mental model
+
+Think in four parts:
+
+- source topics
+- processing topology
+- local state stores
+- output topics and changelogs
+
+State is recoverable because Kafka keeps the input and changelog history.
+
+## Visual explanation
+
+<ArchitectureDiagram title="Stateful processing">
+orders topic -> group by merchant -> windowed aggregate -> merchant totals topic
+                                  |
+                                  v
+                            local state store
+                                  |
+                                  v
+                            changelog topic
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+Kafka Streams assigns input partitions to tasks. Tasks process records, update local state, write changelogs, and produce output. On failure, another instance restores state from changelog topics.
+
+## Code example
+
+```java
+builder.stream("orders", Consumed.with(Serdes.String(), orderSerde))
+    .groupBy((key, order) -> order.merchantId())
+    .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1)))
+    .count()
+    .toStream()
+    .to("merchant.order-counts");
+```
+
+This is a continuous computation, not a batch query.
+
+## Production implications
+
+Stateful processors need deployment discipline: standby replicas, changelog retention, restore time planning, poison-record handling, and versioned state migrations.
+
+## Performance implications
+
+Performance depends on partition count, state size, RocksDB behavior, cache settings, commit interval, serialization, and output batching. Restore time is part of performance.
+
+## Common bugs
+
+- treating event time and processing time as the same
+- ignoring late events
+- making state stores too large to restore quickly
+- changing state format without migration
+- joining streams without understanding key alignment
+
+## Summary
+
+Stream processing turns Kafka logs into live state. The advanced skill is managing time, state, and recovery deliberately.

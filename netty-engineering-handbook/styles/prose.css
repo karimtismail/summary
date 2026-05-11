@@ -1,0 +1,90 @@
+.docs-prose {
+  color: var(--text);
+  max-width: 78ch;
+}
+
+.docs-prose h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(2.35rem, 5vw, 4rem);
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.03;
+}
+
+.docs-prose h2 {
+  margin-top: 4rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.docs-prose h3 {
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.docs-prose p {
+  margin: 1.15rem 0;
+  color: var(--muted);
+  font-size: 1.03rem;
+  line-height: 1.82;
+}
+
+.docs-prose a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.docs-prose a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.docs-prose ul,
+.docs-prose ol {
+  margin: 1.25rem 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+}
+
+.docs-prose li {
+  margin: 0.6rem 0;
+  line-height: 1.75;
+}
+
+.docs-prose strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.docs-prose code:not(pre code) {
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0.12rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.docs-prose blockquote {
+  margin: 2rem 0;
+  border-left: 3px solid var(--accent);
+  padding-left: 1.25rem;
+  color: var(--muted);
+}
+
+.docs-prose hr {
+  margin: 3rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}

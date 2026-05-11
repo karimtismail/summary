@@ -1,0 +1,66 @@
+---
+title: Backpressure
+description: Backpressure protects a system when writers produce faster than consumers can absorb.
+---
+
+<StoryBlock title="Slow Consumers Are Normal">
+Backpressure is not an error path. It is the control system that keeps normal slowness from becoming an outage.
+</StoryBlock>
+
+## Intuition
+
+Every network system has a point where it must say "not yet." Without that signal, memory grows, latency expands, retries multiply, and failure spreads.
+
+## Real-world problem
+
+A server broadcasts updates to thousands of clients. Most keep up. A few mobile clients stall. If the server queues forever, slow clients consume memory that should serve healthy clients.
+
+## Mental model
+
+Backpressure connects producer speed to consumer capacity. It can pause reads, stop accepting work, drop optional messages, close abusive connections, or ask upstream systems to slow down.
+
+## Visual explanation
+
+<FlowDiagram title="Pressure path">
+Consumer slows -> Write buffer grows -> High watermark reached -> Stop reading or producing -> Drain -> Resume
+</FlowDiagram>
+
+## Runtime behavior
+
+Netty channels expose writability based on write buffer watermarks. Handlers can respond to `channelWritabilityChanged` and adjust production or reads.
+
+## Code example
+
+```java
+public void channelWritabilityChanged(ChannelHandlerContext ctx) {
+    if (!ctx.channel().isWritable()) {
+        ctx.channel().config().setAutoRead(false);
+        return;
+    }
+
+    ctx.channel().config().setAutoRead(true);
+    ctx.fireChannelWritabilityChanged();
+}
+```
+
+This links outbound pressure to inbound demand.
+
+## Production implications
+
+Backpressure policy is product policy. Decide what can wait, what can be dropped, what must fail fast, and what should close the connection.
+
+## Performance implications
+
+Good backpressure keeps latency bounded. Bad backpressure hides overload until heap, direct memory, or downstream queues collapse.
+
+## Common bugs
+
+- ignoring `isWritable`
+- queuing unbounded messages per channel
+- pausing reads without a resume path
+- retrying faster during overload
+- treating all messages as equally important
+
+## Summary
+
+Backpressure is how event-driven systems remain honest. It turns overload from a surprise into a managed state.

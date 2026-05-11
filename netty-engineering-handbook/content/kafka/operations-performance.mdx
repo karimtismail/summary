@@ -1,0 +1,72 @@
+---
+title: Operations and Performance
+description: Kafka production work is about lag, retention, compaction, partitions, disks, networking, and careful tuning.
+---
+
+<StoryBlock title="Kafka Fails Through Queues">
+Most Kafka incidents are queueing stories: producers cannot append, brokers cannot replicate, consumers cannot keep up, or disks cannot retain what the business expects.
+</StoryBlock>
+
+## Intuition
+
+Operating Kafka means watching the event system as a set of logs and queues. Lag, disk usage, request latency, replication health, controller health, and client errors tell the real story.
+
+## Real-world problem
+
+Consumer lag rises after a deploy. The team adds consumers, but lag stays high because the topic has fewer partitions than consumers and the handler is blocked on a downstream database.
+
+## Mental model
+
+Debug Kafka performance by boundary:
+
+- producer batching and errors
+- broker request latency and disk IO
+- replication health
+- consumer fetch and processing time
+- downstream side effects
+- retention and compaction behavior
+
+## Visual explanation
+
+<FlowDiagram title="Operational pressure path">
+Producer rate -> Broker append -> Replication -> Consumer fetch -> Handler side effect -> Offset commit
+</FlowDiagram>
+
+## Runtime behavior
+
+Kafka stores segment files on disk and relies heavily on OS page cache. Retention deletes old segments by time or size. Compaction keeps the latest record per key for compacted topics.
+
+## Code example
+
+```properties
+# Topic-level examples
+retention.ms=604800000
+segment.bytes=1073741824
+cleanup.policy=delete
+
+# Compacted topic
+cleanup.policy=compact
+min.cleanable.dirty.ratio=0.5
+```
+
+Retention and compaction are data lifecycle policies, not cleanup afterthoughts.
+
+## Production implications
+
+Create dashboards for under-replicated partitions, offline partitions, request latency, produce/fetch errors, consumer lag by group, disk usage, controller changes, and rebalance frequency.
+
+## Performance implications
+
+Tune with workload evidence. Partition count, batch size, compression, linger, fetch size, socket buffers, and disk layout interact. Change one variable and compare percentiles and recovery behavior.
+
+## Common bugs
+
+- treating lag as one number instead of per partition and consumer group
+- using compaction for event history that needs every event
+- creating partitions without capacity planning
+- ignoring disk and page-cache behavior
+- tuning producers while consumers are the bottleneck
+
+## Summary
+
+Kafka operations are about making log movement visible. Once each boundary is measured, tuning becomes engineering instead of guessing.

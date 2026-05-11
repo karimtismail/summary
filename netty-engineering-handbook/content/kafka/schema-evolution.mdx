@@ -1,0 +1,72 @@
+---
+title: Schema Evolution
+description: Event schemas are long-lived contracts, so compatibility must be designed before producers change.
+---
+
+<StoryBlock title="Events Outlive Deploys">
+A Kafka event may be read by services that deploy tomorrow, next month, or during a replay next year. Schema evolution is how that history remains useful.
+</StoryBlock>
+
+## Intuition
+
+Kafka stores bytes. The meaning of those bytes lives in a schema contract. If producers and consumers disagree about that contract, replay becomes dangerous.
+
+## Real-world problem
+
+A producer renames `customerId` to `accountId`. New consumers work. Old consumers fail. Replaying old records into new code also fails because historical events still contain the old field.
+
+## Mental model
+
+Design for compatibility:
+
+- add optional fields before requiring them
+- keep old fields during migration
+- avoid changing field meaning in place
+- version events by contract, not just code release
+- test old data with new consumers
+
+## Visual explanation
+
+<FlowDiagram title="Safe event change">
+Add optional field -> Deploy tolerant consumers -> Produce both fields -> Migrate readers -> Remove only after retention and policy allow
+</FlowDiagram>
+
+## Runtime behavior
+
+Schema Registry systems can enforce compatibility for Avro, Protobuf, or JSON Schema. The broker stores bytes, but registry checks can prevent incompatible producers from writing.
+
+## Code example
+
+```json
+{
+  "type": "record",
+  "name": "OrderCreated",
+  "fields": [
+    { "name": "orderId", "type": "string" },
+    { "name": "customerId", "type": "string" },
+    { "name": "salesChannel", "type": ["null", "string"], "default": null }
+  ]
+}
+```
+
+Adding a nullable field with a default is a common compatible change.
+
+## Production implications
+
+Schema ownership should be explicit. Producers own meaning, but consumers need review paths for breaking changes. Compatibility checks belong in CI and deployment gates.
+
+## Performance implications
+
+Binary formats reduce payload size and parsing cost, but schema registry calls and serializer setup need careful caching. Do not trade clarity for micro-optimizations too early.
+
+## Common bugs
+
+- changing field meaning without changing the contract
+- assuming new code only reads new events
+- using unstructured JSON for critical business streams
+- deleting fields before retention windows expire
+- testing only producer serialization, not consumer replay
+
+## Summary
+
+Kafka events are durable contracts. Schema evolution keeps those contracts useful as systems change.

@@ -1,0 +1,81 @@
+---
+title: Distributed Log
+description: Kafka starts making sense when you see it as a durable distributed log, not just another queue.
+---
+
+<StoryBlock title="The Event History Is The Product">
+Kafka is built around a simple idea: append facts to an ordered log, keep them for a while, and let many readers move through that history at their own pace.
+</StoryBlock>
+
+## Intuition
+
+A queue usually means work is removed when one consumer receives it. Kafka keeps records in a log and lets consumers track their own position. That is why Kafka can support replay, analytics, stream processing, audit trails, and multiple independent consumers over the same event history.
+
+The first mental shift is from "send this message to a worker" to "record that this event happened."
+
+## Real-world problem
+
+An order service emits events. Billing needs them now. Analytics wants them later. Fraud wants to replay yesterday after a model change. If the system is a simple destructive queue, each new use case becomes a new integration.
+
+Kafka solves this by making the event stream durable and shareable.
+
+## Mental model
+
+Kafka is an append-only commit log split across partitions. Producers append records. Brokers store them. Consumers remember offsets.
+
+The log is the shared source. Consumers are independent cursors.
+
+## Visual explanation
+
+<ArchitectureDiagram title="Kafka as a shared log">
+producer
+   |
+   v
+topic partition: [0][1][2][3][4][5][6]
+                  ^        ^           ^
+               billing  fraud     analytics
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+Records are appended to partitions. Each record gets an offset within its partition. Consumers fetch records and commit offsets to record progress.
+
+Kafka does not push records into application memory by default. Consumers pull batches, which makes throughput and backpressure easier to control.
+
+## Code example
+
+```java
+ProducerRecord<String, String> record =
+    new ProducerRecord<>("orders.events", orderId, payloadJson);
+
+producer.send(record, (metadata, error) -> {
+    if (error != null) {
+        log.warn("append failed", error);
+        return;
+    }
+    log.info("written to {}-{}@{}",
+        metadata.topic(), metadata.partition(), metadata.offset());
+});
+```
+
+The producer appends an event. Consumers decide when and how to read it.
+
+## Production implications
+
+Event naming, retention, partitioning, and schema design become product decisions. A badly designed event stream can be consumed by many systems, which means its mistakes also scale.
+
+## Performance implications
+
+Kafka is fast because it batches, writes sequentially, uses page cache heavily, and lets consumers fetch in batches. It is not fast because individual records are magical.
+
+## Common bugs
+
+- treating Kafka topics as temporary task queues without thinking about replay
+- putting commands and facts in the same event stream
+- assuming one topic partition means global ordering across the system
+- ignoring retention until old replay data is gone
+- letting every team invent incompatible event shapes
+
+## Summary
+
+Kafka is a distributed event log. Once that clicks, topics, partitions, offsets, replay, and stream processing all become easier to understand.

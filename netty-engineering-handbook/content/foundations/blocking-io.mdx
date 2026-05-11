@@ -1,0 +1,81 @@
+---
+title: Blocking IO
+description: See why simple blocking sockets are easy to understand and why they stop scaling under many concurrent connections.
+---
+
+<StoryBlock title="The Comfortable Beginning">
+Blocking IO is the most natural way to write a server: wait for a connection, wait for bytes, respond. That comfort is exactly why its scaling failure can surprise teams.
+</StoryBlock>
+
+## Intuition
+
+Blocking IO couples a thread to waiting. If one connection is slow, the thread assigned to it is also slow. That is fine for a small number of clients and painful for a large number of idle or slow clients.
+
+The first big transition in networking systems is from "a thread does the waiting" to "the kernel tells us what is ready."
+
+## Real-world problem
+
+A chat server has 40,000 connected clients. Most are idle. With blocking IO, each connection wants a thread or a complicated handoff. Threads consume memory, scheduling time, and operational attention even when they are doing nothing.
+
+The problem is not that threads are bad. The problem is using threads to represent waiting sockets.
+
+## Mental model
+
+Blocking IO scales with concurrent waits. Event-driven IO scales with ready events.
+
+That difference explains the path from blocking sockets to selectors, and from selectors to Netty EventLoops.
+
+## Visual explanation
+
+<FlowDiagram title="Why blocking IO expands">
+Connection -> Dedicated thread -> Blocking read -> Idle wait -> More connections need more threads
+</FlowDiagram>
+
+## Runtime behavior
+
+In a blocking server, `read` parks the thread until data arrives, the peer closes, or a timeout fires. While parked, the thread cannot process other sockets.
+
+The kernel already knows which sockets are ready. Blocking IO chooses not to ask that question globally.
+
+## Code example
+
+```java
+while (true) {
+    Socket socket = serverSocket.accept();
+    executor.submit(() -> {
+        try (InputStream in = socket.getInputStream()) {
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                handle(buffer, read);
+            }
+        } catch (IOException error) {
+            log.warn("connection failed", error);
+        }
+    });
+}
+```
+
+The code is direct. The hidden cost is that every slow connection occupies execution resources.
+
+## Production implications
+
+Blocking IO can be perfectly reasonable for small internal tools, administrative services, or systems with bounded concurrency. It becomes risky when clients are numerous, slow, mobile, or untrusted.
+
+Capacity planning must include thread stack memory, scheduler overhead, and downstream blocking calls.
+
+## Performance implications
+
+The expensive part is not only context switching. It is also memory footprint, cache disruption, lock contention in shared executors, and tail latency when the pool saturates.
+
+## Common bugs
+
+- creating unbounded threads for accepted sockets
+- performing blocking database calls on the same pool as socket reads
+- treating timeouts as normal control flow at scale
+- missing slow-client behavior in load tests
+- assuming low CPU means the server has capacity
+
+## Summary
+
+Blocking IO is an excellent teaching model and a limited scaling model. Selectors solve the waiting problem by letting one thread observe many sockets.

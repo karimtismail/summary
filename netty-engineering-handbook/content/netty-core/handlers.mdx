@@ -1,0 +1,75 @@
+---
+title: Handlers
+description: Handlers package protocol behavior, but their state and threading rules must be explicit.
+---
+
+<StoryBlock title="A Handler Is A Responsibility Boundary">
+A good handler has one job: decode a boundary, encode a boundary, enforce a rule, or call application logic.
+</StoryBlock>
+
+## Intuition
+
+Handlers are where Netty code becomes readable or chaotic. Small handlers teach the pipeline what happens. Large handlers hide protocol state and failure behavior.
+
+## Real-world problem
+
+A single handler parses bytes, authenticates users, calls a database, writes responses, and retries failures. When production breaks, nobody can tell whether the bug is framing, auth, IO, or business logic.
+
+## Mental model
+
+Design handlers around ownership:
+
+- what message type enters?
+- what message type leaves?
+- what state is retained?
+- which thread touches that state?
+- who releases reference-counted objects?
+
+## Visual explanation
+
+<FlowDiagram title="Handler responsibility">
+Receive one input type -> Validate boundary -> Emit one output type -> Release what you own
+</FlowDiagram>
+
+## Runtime behavior
+
+Handlers run on the channel's EventLoop unless explicitly offloaded. A `@Sharable` handler may be reused across channels only when its state is safe for that use.
+
+Reference-counted messages must be released by the handler that consumes them.
+
+## Code example
+
+```java
+public final class AuthGate extends SimpleChannelInboundHandler<LoginMessage> {
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, LoginMessage msg) {
+        if (!msg.token().isValid()) {
+            ctx.close();
+            return;
+        }
+        ctx.fireChannelRead(msg.toSession());
+    }
+}
+```
+
+The handler consumes a login message and emits a session concept. It does not also parse bytes or write business responses.
+
+## Production implications
+
+Name handlers by responsibility. Use metrics at handler boundaries. The best production pipeline makes it obvious where malformed input, slow work, and write pressure occur.
+
+## Performance implications
+
+Handlers should avoid unnecessary allocations, blocking calls, and cross-thread handoffs. When offloading is needed, make the return path explicit.
+
+## Common bugs
+
+- marking stateful handlers as `@Sharable`
+- forgetting to release consumed `ByteBuf` instances
+- calling blocking services in `channelRead`
+- catching exceptions and continuing with corrupt state
+- mixing protocol parsing with business transactions
+
+## Summary
+
+Handlers are small runtime contracts. Keep them narrow, typed, and honest about state ownership.
