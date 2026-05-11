@@ -5,18 +5,18 @@ import { contentCurrentAsOf, learningPaths, sections, upcomingTracks } from "@/l
 
 export default function HandbookIndexPage() {
   return (
-    <main className="mx-auto grid max-w-[1440px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
+    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8">
       <aside className="hidden lg:block">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-4">
           <Sidebar />
         </div>
       </aside>
-      <section className="max-w-5xl">
-        <h1 className="max-w-4xl text-5xl font-bold leading-[1.05] tracking-[0] text-text">A topic map for serious engineering systems.</h1>
-        <p className="mt-6 max-w-3xl text-lg leading-8 text-muted">
+      <section className="min-w-0">
+        <h1 className="max-w-4xl text-4xl font-bold leading-[1.06] tracking-[0] text-text sm:text-5xl">A topic map for serious engineering systems.</h1>
+        <p className="mt-5 max-w-3xl text-base leading-7 text-muted sm:mt-6 sm:text-lg sm:leading-8">
           This handbook is arranged as a scalable curriculum. Networking, Netty, and Kafka are active deep tracks; the same MDX structure can expand into system design, databases, JVM concurrency, cloud platforms, security, and observability.
         </p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Link href="/handbook/cheatsheets" className="group rounded-lg border border-border bg-panel p-4 transition hover:border-accent/50 hover:bg-card">
             <div className="flex items-center gap-3">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-accent">
@@ -46,8 +46,8 @@ export default function HandbookIndexPage() {
           </div>
         </div>
 
-        <section className="mt-12 rounded-lg border border-border bg-panel p-5 shadow-inset">
-          <div className="mb-5">
+        <section className="mt-10 rounded-lg border border-border bg-panel p-4 shadow-inset sm:p-5 lg:mt-12">
+          <div className="mb-4 sm:mb-5">
             <h2 className="text-xl font-semibold tracking-[0] text-text">Recommended learning paths</h2>
             <p className="mt-1 text-sm leading-6 text-muted">Use paths when you want an outcome, not a table of contents.</p>
           </div>
@@ -64,30 +64,30 @@ export default function HandbookIndexPage() {
           </div>
         </section>
 
-        <div className="mt-12 space-y-8">
+        <div className="mt-10 space-y-5 sm:space-y-6 lg:mt-12">
           {sections.map((section) => {
             const Icon = section.icon;
             return (
-              <section key={section.slug} className="rounded-lg border border-border bg-panel p-5 shadow-inset">
-                <div className="mb-5 flex items-start gap-4">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-accent-secondary">
+              <section key={section.slug} className="rounded-lg border border-border bg-panel p-4 shadow-inset sm:p-5">
+                <div className="mb-4 flex items-start gap-3 sm:mb-5 sm:gap-4">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-accent-secondary sm:h-10 sm:w-10">
                     <Icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-xl font-semibold tracking-[0] text-text">{section.title}</h2>
+                      <h2 className="text-lg font-semibold tracking-[0] text-text sm:text-xl">{section.title}</h2>
                       <span className="rounded-md border border-border bg-card px-2 py-1 text-xs text-muted">{section.level}</span>
                       <span className="rounded-md border border-border bg-card px-2 py-1 text-xs text-accent">{section.domain}</span>
                     </div>
                     <p className="mt-1 text-sm leading-6 text-muted">{section.description}</p>
                   </div>
                 </div>
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid gap-2 sm:gap-3 md:grid-cols-2">
                   {section.chapters.map((chapter) => (
                     <Link
                       key={chapter.slug}
                       href={`/handbook/${section.slug}/${chapter.slug}`}
-                      className="group rounded-md border border-border bg-card p-4 transition hover:border-accent/50 hover:bg-bg"
+                      className="group rounded-md border border-border bg-card p-3.5 transition hover:border-accent/50 hover:bg-bg sm:p-4"
                     >
                       <div className="flex items-center justify-between gap-4">
                         <p className="font-medium text-text">{chapter.title}</p>
@@ -102,8 +102,8 @@ export default function HandbookIndexPage() {
           })}
         </div>
 
-        <section className="mt-12 rounded-lg border border-border bg-panel p-5 shadow-inset">
-          <div className="mb-5">
+        <section className="mt-10 rounded-lg border border-border bg-panel p-4 shadow-inset sm:p-5 lg:mt-12">
+          <div className="mb-4 sm:mb-5">
             <h2 className="text-xl font-semibold tracking-[0] text-text">Future topic lanes</h2>
             <p className="mt-1 text-sm leading-6 text-muted">These are planned slots for more MDX tracks. They are intentionally not links until real chapters exist.</p>
           </div>

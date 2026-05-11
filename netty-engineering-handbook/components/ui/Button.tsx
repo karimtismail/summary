@@ -18,7 +18,7 @@ export function Button({ variant = "primary", className, children, ...props }: C
   return (
     <button
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md border px-4 text-sm font-medium transition",
+        "inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md border px-4 text-sm font-medium transition",
         variants[variant],
         className
       )}
@@ -39,7 +39,7 @@ export function ButtonLink({
   return (
     <Link
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-md border px-4 text-sm font-medium transition",
+        "inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-md border px-4 text-sm font-medium transition",
         variants[variant],
         className
       )}

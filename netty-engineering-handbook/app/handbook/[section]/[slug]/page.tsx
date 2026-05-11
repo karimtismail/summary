@@ -47,23 +47,23 @@ export default async function ChapterPage({ params }: PageProps) {
   });
 
   return (
-    <main className="mx-auto grid max-w-[1440px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)_240px] lg:px-8">
+    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8 xl:grid-cols-[264px_minmax(0,1fr)_224px]">
       <aside className="hidden lg:block">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-4">
           <Sidebar />
         </div>
       </aside>
       <article className="min-w-0">
-        <div className="mb-10 rounded-lg border border-border bg-panel p-6 shadow-inset">
-          <p className="mb-4 text-sm font-medium text-accent">{chapter.sectionTitle}</p>
+        <div className="mb-8 rounded-lg border border-border bg-panel p-4 shadow-inset sm:p-6 lg:mb-10">
+          <p className="mb-3 text-sm font-medium text-accent sm:mb-4">{chapter.sectionTitle}</p>
           <div className="docs-prose">
             <h1>{chapterSource.frontmatter.title ?? chapter.title}</h1>
             <p>{chapterSource.frontmatter.description ?? chapter.description}</p>
           </div>
-          <p className="mt-5 inline-flex rounded-md border border-border bg-card px-3 py-1.5 text-sm text-muted">
+          <p className="mt-4 inline-flex rounded-md border border-border bg-card px-3 py-1.5 text-sm leading-6 text-muted sm:mt-5">
             Current as of {contentCurrentAsOf}. Explains the problem before the API.
           </p>
-          <div className="mt-6 grid gap-2 border-t border-border pt-5 sm:grid-cols-5">
+          <div className="mt-5 grid gap-2 border-t border-border pt-4 sm:mt-6 sm:grid-cols-5 sm:pt-5">
             {["Problem", "Model", "Runtime", "Code", "Production"].map((step, index) => (
               <div key={step} className="rounded-md border border-border bg-card px-3 py-2">
                 <p className="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</p>

@@ -60,7 +60,9 @@ export function CodeBlock({ children }: { children: ReactNode }) {
   return (
     <div className="group relative my-8 overflow-hidden rounded-lg border border-border bg-[#0d1017] shadow-inset">
       <div className="flex items-center justify-between border-b border-border bg-panel/70 px-4 py-2">
-        <span className="font-mono text-xs text-muted">{language}</span>
+        <span className="font-mono text-xs text-muted" suppressHydrationWarning>
+          {language}
+        </span>
         <button
           type="button"
           onClick={copy}
@@ -72,7 +74,7 @@ export function CodeBlock({ children }: { children: ReactNode }) {
         </button>
       </div>
       <SyntaxHighlighter
-        language={language}
+        language="text"
         style={oneDark}
         customStyle={{
           margin: 0,

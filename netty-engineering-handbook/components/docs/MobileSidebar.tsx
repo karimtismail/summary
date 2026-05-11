@@ -20,8 +20,8 @@ export function MobileSidebar() {
       {open ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button className="absolute inset-0 bg-black/60" aria-label="Close navigation" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-[86vw] max-w-sm overflow-y-auto border-r border-border bg-bg p-5 shadow-soft">
-            <div className="mb-6 flex items-center justify-between">
+          <aside className="absolute left-0 top-0 h-full w-[92vw] max-w-sm overflow-y-auto border-r border-border bg-bg p-4 shadow-soft sm:p-5">
+            <div className="mb-5 flex items-center justify-between">
               <span className="text-sm font-semibold text-text">Handbook</span>
               <button
                 type="button"
