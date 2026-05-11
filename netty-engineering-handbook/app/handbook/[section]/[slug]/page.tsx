@@ -3,6 +3,8 @@ import { compileMDX } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import { ChapterCheatSheet, ChapterSummary } from "@/components/docs/ChapterCheatSheet";
 import { ChapterLearningGuide } from "@/components/docs/ChapterLearningGuide";
+import { ChapterTakeaways } from "@/components/docs/ChapterTakeaways";
+import { ChapterTrail } from "@/components/docs/ChapterTrail";
 import { TableOfContents } from "@/components/docs/TableOfContents";
 import { PrevNext } from "@/components/docs/PrevNext";
 import { Sidebar } from "@/components/docs/Sidebar";
@@ -73,9 +75,11 @@ export default async function ChapterPage({ params }: PageProps) {
             ))}
           </div>
         </div>
+        <ChapterTrail section={section} slug={slug} />
         <ChapterLearningGuide title={chapter.title} section={chapter.sectionTitle} sheet={chapterSource.cheatSheet} />
-        <ChapterCheatSheet sheet={chapterSource.cheatSheet} />
         <div className="docs-prose">{content}</div>
+        <ChapterTakeaways sheet={chapterSource.cheatSheet} />
+        <ChapterCheatSheet sheet={chapterSource.cheatSheet} />
         <ChapterSummary summary={chapterSource.cheatSheet.summary} />
         <PrevNext section={section} slug={slug} />
       </article>

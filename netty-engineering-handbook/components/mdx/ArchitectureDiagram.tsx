@@ -5,9 +5,14 @@ export function ArchitectureDiagram({ children, title }: { children: ReactNode; 
   const code = reactNodeToText(children).trim();
 
   return (
-    <figure className="my-8 overflow-hidden rounded-lg border border-border bg-[#11151d] shadow-inset">
-      {title ? <figcaption className="border-b border-border bg-panel px-5 py-3 text-sm font-semibold text-text">{title}</figcaption> : null}
-      <pre className="m-0 overflow-x-auto p-5 font-mono text-sm leading-7 text-muted">
+    <figure className="my-8 overflow-hidden rounded-xl border border-border bg-[#11151d] shadow-inset">
+      {title ? (
+        <figcaption className="flex items-center justify-between gap-3 border-b border-border bg-panel px-5 py-3 text-sm font-semibold text-text">
+          <span>{title}</span>
+          <span className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted">Diagram</span>
+        </figcaption>
+      ) : null}
+      <pre className="m-0 overflow-x-auto p-5 font-mono text-sm leading-7 text-muted [tab-size:2]">
         <code>{code}</code>
       </pre>
     </figure>

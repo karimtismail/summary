@@ -7,14 +7,18 @@ import { useMemo, useState } from "react";
 import { sections } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
+const levelFilters = ["All", "Core", "Applied", "Advanced"] as const;
+
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
+  const [level, setLevel] = useState<(typeof levelFilters)[number]>("All");
   const normalizedQuery = query.trim().toLowerCase();
   const visibleSections = useMemo(() => {
-    if (!normalizedQuery) return sections;
+    const byLevel = level === "All" ? sections : sections.filter((section) => section.level === level);
+    if (!normalizedQuery) return byLevel;
 
-    return sections
+    return byLevel
       .map((section) => ({
         ...section,
         chapters: section.chapters.filter((chapter) => {
@@ -23,7 +27,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         })
       }))
       .filter((section) => section.chapters.length > 0);
-  }, [normalizedQuery]);
+  }, [level, normalizedQuery]);
 
   return (
     <nav aria-label="Handbook navigation" className="space-y-5">
@@ -39,6 +43,23 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           suppressHydrationWarning
         />
       </label>
+
+      <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-panel/55 p-1 shadow-inset">
+        {levelFilters.map((filter) => (
+          <button
+            key={filter}
+            type="button"
+            onClick={() => setLevel(filter)}
+            className={cn(
+              "rounded-md px-2 py-1.5 text-xs font-medium text-muted transition hover:bg-card hover:text-text",
+              level === filter && "bg-card text-text shadow-inset"
+            )}
+            aria-pressed={level === filter}
+          >
+            {filter}
+          </button>
+        ))}
+      </div>
 
       <div className="space-y-3">
       {visibleSections.map((section) => {

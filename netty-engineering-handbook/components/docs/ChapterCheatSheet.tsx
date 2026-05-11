@@ -24,17 +24,18 @@ function SheetCard({
 
 export function ChapterCheatSheet({ sheet }: { sheet: ChapterCheatSheetData }) {
   return (
-    <section className="mb-12 rounded-xl border border-border bg-card/60 p-4 shadow-inset sm:p-5" aria-labelledby="cheat-sheet-title">
-      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <details className="mt-10 rounded-xl border border-border bg-card/60 p-4 shadow-inset sm:p-5" aria-labelledby="cheat-sheet-title">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg border border-border bg-panel px-4 py-3 transition hover:border-accent/50">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Cheat sheet</p>
-          <h2 id="cheat-sheet-title" className="mt-2 text-2xl font-semibold tracking-[0] text-text">
-            The topic in one page
+          <h2 id="cheat-sheet-title" className="mt-1 text-xl font-semibold tracking-[0] text-text">
+            Open the one-page review
           </h2>
         </div>
-        <p className="max-w-md text-sm leading-6 text-muted">Use this before reading, then again when revising the chapter.</p>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
+        <span className="rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted">Review</span>
+      </summary>
+      <p className="mt-4 text-sm leading-6 text-muted">Use this after the lesson, then again when revising the chapter.</p>
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
         <SheetCard title="Problem" icon={<Workflow className="h-4 w-4" />}>
           {sheet.problem}
         </SheetCard>
@@ -62,7 +63,7 @@ export function ChapterCheatSheet({ sheet }: { sheet: ChapterCheatSheetData }) {
           </ul>
         </SheetCard>
       </div>
-    </section>
+    </details>
   );
 }
 

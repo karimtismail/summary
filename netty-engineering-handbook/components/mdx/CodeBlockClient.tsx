@@ -47,7 +47,10 @@ export function CodeBlockClient({ code, language }: { code: string; language: st
   return (
     <div className="group relative my-8 overflow-hidden rounded-lg border border-border bg-[#0d1017] shadow-inset">
       <div className="flex items-center justify-between border-b border-border bg-panel/70 px-4 py-2">
-        <span className="font-mono text-xs text-muted">{language}</span>
+        <div>
+          <span className="font-mono text-xs text-muted">{language}</span>
+          <p className="mt-1 hidden text-xs text-muted sm:block">What to notice: focus on the boundary, failure path, and ownership rule.</p>
+        </div>
         <button
           type="button"
           onClick={copy}
