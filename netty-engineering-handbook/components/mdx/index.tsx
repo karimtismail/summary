@@ -2,6 +2,7 @@ import type { MDXComponents } from "mdx/types";
 import { ArchitectureDiagram } from "@/components/mdx/ArchitectureDiagram";
 import { CodeBlock } from "@/components/mdx/CodeBlock";
 import { Danger, Highlight, StoryBlock, Warning } from "@/components/mdx/Callouts";
+import { FlowComparison } from "@/components/mdx/FlowComparison";
 import { FlowDiagram } from "@/components/mdx/FlowDiagram";
 import { H2, H3 } from "@/components/mdx/MdxHeading";
 
@@ -13,6 +14,7 @@ export const mdxComponents: MDXComponents = {
   Highlight,
   Warning,
   Danger,
+  FlowComparison,
   FlowDiagram,
   ArchitectureDiagram
 };

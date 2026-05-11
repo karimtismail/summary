@@ -27,13 +27,17 @@ That difference shapes the protocol above it. TCP protocols need framing. UDP pr
 
 ## Visual explanation
 
-<FlowDiagram title="Transport behavior">
-TCP send -> ACK tracking -> retransmission -> ordered byte stream
-</FlowDiagram>
-
-<FlowDiagram title="Datagram behavior">
-UDP send -> best effort delivery -> application decides recovery
-</FlowDiagram>
+<FlowComparison
+  title="TCP and UDP failure contracts"
+  subtitle="Read this as an ownership map: who remembers progress, who repairs loss, and what the application receives."
+  leftTitle="TCP: reliable byte stream"
+  leftSubtitle="The transport keeps state so the application can read ordered bytes."
+  leftFlow="Application writes bytes -> TCP assigns sequence numbers -> ACKs confirm progress -> Missing bytes are retransmitted -> Application receives an ordered byte stream"
+  rightTitle="UDP: best-effort datagrams"
+  rightSubtitle="The transport sends independent packets and the application owns recovery."
+  rightFlow="Application sends one datagram -> Kernel sends without stream state -> Network may deliver, drop, duplicate, or reorder -> Application decides whether to ignore, retry, or repair"
+  insight="TCP hides loss behind stream repair. UDP exposes uncertainty so the protocol can decide what freshness and correctness mean."
+/>
 
 ## Runtime behavior
 
