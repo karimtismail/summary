@@ -27,7 +27,7 @@ After upgrade, connection lifecycle and backpressure become long-lived concerns.
 ## Visual explanation
 
 <FlowDiagram title="WebSocket lifecycle">
-HTTP request -> Upgrade handshake -> WebSocket frames -> Ping/pong and close
+HTTP request -> Upgrade handshake -> WebSocket frames -> Ping, pong, and close
 </FlowDiagram>
 
 ## Runtime behavior
@@ -60,7 +60,7 @@ Long-lived connections change resource math. Memory per connection, write queue 
 ## Common bugs
 
 - not handling close frames
-- ignoring ping/pong and idle timeouts
+- ignoring ping, pong, and idle timeouts
 - broadcasting faster than clients can receive
 - assuming a WebSocket message is a business transaction
 - skipping authentication after reconnects

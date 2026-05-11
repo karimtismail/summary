@@ -60,7 +60,7 @@ The pipeline is a practical layer stack. Bytes become TLS records, then HTTP mes
 
 ## Production implications
 
-Runbooks should name the layer under investigation. "Check networking" is not precise. "Verify SYN/SYN-ACK, TLS handshake, HTTP decode, and application route" is actionable.
+Runbooks should name the layer under investigation. "Check networking" is not precise. "Verify the SYN and SYN-ACK exchange, TLS handshake, HTTP decode, and application route" is actionable.
 
 Logs should preserve layer-specific errors instead of flattening everything into 500 responses.
 

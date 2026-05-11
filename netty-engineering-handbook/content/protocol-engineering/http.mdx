@@ -13,7 +13,7 @@ HTTP gives applications a common language: methods, paths, status codes, headers
 
 ## Real-world problem
 
-A custom server reads bytes and searches for `\r\n\r\n`. It works until chunked transfer, keep-alive, compression, or malformed headers appear. The problem is trying to parse a mature protocol as a string exercise.
+A custom server treats the first blank line as the end of an HTTP request. That shortcut fails once the server meets chunked bodies, persistent connections, compression, or malformed headers. The problem is trying to parse a mature protocol as a string exercise.
 
 ## Mental model
 

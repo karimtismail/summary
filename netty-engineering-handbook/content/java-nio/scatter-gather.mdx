@@ -1,10 +1,10 @@
 ---
 title: Scatter Gather
-description: Scatter/gather IO moves structured bytes across multiple buffers without forcing one temporary array.
+description: Scatter-gather IO moves structured bytes across multiple buffers without forcing one temporary array.
 ---
 
 <StoryBlock title="Messages Are Often Already Segmented">
-A protocol message may have a header, metadata, and payload. Scatter/gather lets the IO layer respect that shape.
+A protocol message may have a header, metadata, and payload. Scatter-gather IO lets the IO layer respect that shape.
 </StoryBlock>
 
 ## Intuition
@@ -54,7 +54,7 @@ The loop still matters because gathering does not eliminate partial writes.
 
 ## Production implications
 
-Scatter/gather is useful for file transfer, binary protocols, TLS-adjacent framing, and systems where payload ownership should remain separate from metadata ownership.
+Scatter-gather IO is useful for file transfer, binary protocols, TLS-adjacent framing, and systems where payload ownership should remain separate from metadata ownership.
 
 ## Performance implications
 
@@ -64,10 +64,10 @@ The benefit is copy avoidance and fewer syscalls in the right workload. The cost
 
 - dropping the buffer array after a partial write
 - assuming all buffers advance together
-- using scatter/gather for tiny messages where complexity brings no benefit
+- using scatter-gather IO for tiny messages where complexity brings no benefit
 - mutating a payload buffer while it is queued for write
 - forgetting that TLS layers may change copy behavior
 
 ## Summary
 
-Scatter/gather IO is a precision tool. It keeps structured messages structured while still giving the kernel an efficient byte sequence.
+Scatter-gather IO is a precision tool. It keeps structured messages structured while still giving the kernel an efficient byte sequence.
