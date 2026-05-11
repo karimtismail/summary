@@ -22,13 +22,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <ReadingProgress />
-          <header className="sticky top-0 z-30 border-b border-border bg-bg/86 backdrop-blur-xl">
-            <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur-xl">
+            <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2.5 px-4 sm:gap-3 sm:px-6 lg:px-8">
               <MobileSidebar />
-              <Link href="/" className="flex items-center gap-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-panel text-accent shadow-inset">
+              <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-panel text-accent shadow-inset">
                   <BookOpenText className="h-4 w-4" />
                 </span>
+                <span className="truncate text-sm font-semibold text-text sm:hidden">Systems Handbook</span>
                 <span className="hidden text-sm font-semibold text-text sm:inline">{handbookName}</span>
               </Link>
               <nav className="ml-auto hidden items-center gap-6 text-sm text-muted md:flex">

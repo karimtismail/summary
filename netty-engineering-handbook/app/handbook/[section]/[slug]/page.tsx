@@ -48,7 +48,7 @@ export default async function ChapterPage({ params }: PageProps) {
   });
 
   return (
-    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8 xl:grid-cols-[264px_minmax(0,1fr)_224px]">
+    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8 xl:grid-cols-[264px_minmax(0,1fr)_224px]">
       <aside className="hidden lg:block">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-4">
           <Sidebar />
@@ -64,7 +64,7 @@ export default async function ChapterPage({ params }: PageProps) {
           <p className="mt-4 inline-flex rounded-md border border-border bg-card px-3 py-1.5 text-sm leading-6 text-muted sm:mt-5">
             Current as of {contentCurrentAsOf}. Explains the problem before the API.
           </p>
-          <div className="mt-5 grid gap-2 border-t border-border pt-4 sm:mt-6 sm:grid-cols-5 sm:pt-5">
+          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border pt-4 sm:mt-6 sm:grid-cols-5 sm:pt-5">
             {["Problem", "Model", "Runtime", "Code", "Production"].map((step, index) => (
               <div key={step} className="rounded-md border border-border bg-card px-3 py-2">
                 <p className="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</p>

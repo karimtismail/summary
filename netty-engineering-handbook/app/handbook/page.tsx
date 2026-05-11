@@ -5,15 +5,15 @@ import { contentCurrentAsOf, learningPaths, sections, upcomingTracks } from "@/l
 
 export default function HandbookIndexPage() {
   return (
-    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8">
+    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8">
       <aside className="hidden lg:block">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-4">
           <Sidebar />
         </div>
       </aside>
       <section className="min-w-0">
-        <h1 className="max-w-4xl text-4xl font-bold leading-[1.06] tracking-[0] text-text sm:text-5xl">A topic map for serious engineering systems.</h1>
-        <p className="mt-5 max-w-3xl text-base leading-7 text-muted sm:mt-6 sm:text-lg sm:leading-8">
+        <h1 className="max-w-4xl text-3xl font-bold leading-[1.08] tracking-[0] text-text sm:text-5xl sm:leading-[1.06]">A topic map for serious engineering systems.</h1>
+        <p className="mt-4 max-w-3xl text-base leading-7 text-muted sm:mt-6 sm:text-lg sm:leading-8">
           This handbook is arranged as a scalable curriculum. Networking, Netty, and Kafka are active deep tracks; the same MDX structure can expand into system design, databases, JVM concurrency, cloud platforms, security, and observability.
         </p>
         <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
