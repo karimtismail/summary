@@ -48,12 +48,16 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <details key={`${section.slug}-${activeSection}-${normalizedQuery}`} className="group rounded-lg border border-border bg-panel/55 p-2 shadow-inset" open={activeSection || Boolean(normalizedQuery)}>
             <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted transition hover:bg-card hover:text-text">
               <Icon className="h-4 w-4 text-accent-secondary" />
-              <span>{section.title}</span>
+              <span className="min-w-0 flex-1 truncate">{section.title}</span>
               <span className="ml-auto rounded-sm border border-border bg-card px-1.5 py-0.5 font-mono text-[0.65rem] tracking-[0] text-muted">
                 {section.chapters.length}
               </span>
               <ChevronDown className={cn("h-3.5 w-3.5 transition group-open:rotate-180", activeSection && "text-accent")} />
             </summary>
+            <div className="mx-2 mb-2 flex flex-wrap gap-1.5">
+              <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 text-[0.65rem] text-accent">{section.domain}</span>
+              <span className="rounded-sm border border-border bg-card px-1.5 py-0.5 text-[0.65rem] text-muted">{section.level}</span>
+            </div>
             <div className="mt-2 space-y-1 border-l border-border pl-3">
               {section.chapters.map((chapter) => {
                 const href = `/handbook/${section.slug}/${chapter.slug}`;

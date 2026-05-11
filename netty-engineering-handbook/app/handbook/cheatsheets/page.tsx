@@ -7,7 +7,7 @@ import { getChapterSource } from "@/lib/mdx";
 
 export const metadata: Metadata = {
   title: "Cheat Sheets",
-  description: "Quick revision cards for every chapter in the Network Systems Handbook."
+  description: "Quick revision cards for every chapter in the Engineering Systems Handbook."
 };
 
 export default async function CheatSheetsPage() {
@@ -32,7 +32,7 @@ export default async function CheatSheetsPage() {
           </div>
           <h1 className="max-w-4xl text-5xl font-bold leading-[1.05] tracking-[0] text-text">Cheat sheets for every topic.</h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-muted">
-            Fast review cards generated from the same chapter structure: problem, mental model, runtime behavior, production concerns, performance concerns, bugs, and summary. Current as of {contentCurrentAsOf}.
+            Fast review cards generated from the same chapter structure: problem, mental model, behavior, production concerns, performance concerns, bugs, and summary. Current as of {contentCurrentAsOf}.
           </p>
         </div>
 

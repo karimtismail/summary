@@ -10,10 +10,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Network Systems Handbook",
-    template: "%s | Network Systems Handbook"
+    default: "Engineering Systems Handbook",
+    template: "%s | Engineering Systems Handbook"
   },
-  description: "A premium long-form engineering handbook for Java NIO, Netty, Kafka, protocols, and production network systems updated for 2026."
+  description: "A premium long-form engineering handbook for runtime internals, distributed systems, protocols, performance, data platforms, and production engineering updated for 2026."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -41,8 +41,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <Link className="transition hover:text-text" href="/handbook/foundations/blocking-io">
                   Start
                 </Link>
-                <Link className="transition hover:text-text" href="/handbook/performance/backpressure">
-                  Production
+                <Link className="transition hover:text-text" href="/handbook/mastery/architecture">
+                  Architecture
                 </Link>
               </nav>
               <span className="hidden rounded-md border border-border bg-panel px-2.5 py-1 text-xs text-muted xl:inline">Current as of {contentCurrentAsOf}</span>
