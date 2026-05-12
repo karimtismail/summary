@@ -1,0 +1,102 @@
+---
+title: Schema Design
+description: MongoDB schema design balances embedding, references, duplication, and access patterns.
+---
+
+<StoryBlock title="Schema Exists Even When The Database Is Flexible">
+MongoDB does not force you into tables, but it does not remove design work. It moves the design question closer to the application workflow.
+</StoryBlock>
+
+## Intuition
+
+The main choice is embedding versus referencing. Embed when data belongs to the same aggregate and is read together. Reference when data has its own lifecycle, is shared widely, or would make the parent document grow without bounds.
+
+<Misconception
+  soundsLike="Document databases mean everything should be embedded."
+  actually="Embedding is a tool for locality. References are still useful for independent lifecycles and shared entities."
+  whyItMatters="Over-embedding makes documents large, hard to update, and sometimes impossible to scale cleanly."
+/>
+
+## Real-world problem
+
+A blog post can embed comments when comments are small and always shown with the post. But a busy post with millions of comments should not become one giant document.
+
+The model must respect both reading convenience and growth.
+
+## Mental model
+
+Choose based on four pressures:
+
+- read together
+- update together
+- grow together
+- own lifecycle together
+
+If all four are yes, embedding is usually natural. If the answers split, consider references.
+
+## Visual explanation
+
+<TracePrompt>
+Trace the lifecycle. The data that changes together usually wants to live together.
+</TracePrompt>
+
+<ComicStrip title="Tiny scene: embed or reference">
+Endpoint | I need the seller name beside every product.
+Document | Keep a small seller summary here for the read path.
+Modeler | Put the full seller profile elsewhere because it has its own life.
+</ComicStrip>
+
+<FlowDiagram title="Modeling decision">
+Access pattern -> Lifecycle check -> Growth check -> Embed or reference -> Index the query
+</FlowDiagram>
+
+## Runtime behavior
+
+MongoDB can query nested fields and arrays, but the physical document still has size and update costs. Duplicating read-friendly summary data can be fine if the update path is explicit.
+
+<RuntimeTrace title="Schema decision">
+Read path | What does the endpoint need in one response?
+Write path | Which fields change together?
+Growth path | Can any array grow without a limit?
+Consistency path | Can duplicated data tolerate delayed repair?
+</RuntimeTrace>
+
+## Code example
+
+```json
+{
+  "_id": "product-1",
+  "name": "Keyboard",
+  "seller": {
+    "id": "seller-7",
+    "displayName": "North Tools"
+  },
+  "price": 120
+}
+```
+
+Embedding a seller summary can make product listing fast. The full seller profile can still live in a separate `sellers` collection.
+
+<RecallPrompt question="when should you avoid embedding?">
+Avoid embedding when the child data grows without bounds, has an independent lifecycle, or is shared and updated across many parent documents.
+</RecallPrompt>
+
+## Production implications
+
+Document schema decisions become migration decisions. Version important documents, keep migration scripts small and reversible, and make duplicated fields observable.
+
+## Performance implications
+
+Embedding can make reads faster by reducing round trips. It can make writes more expensive when many duplicated summaries need updates. Indexes still matter.
+
+## Common bugs
+
+- copying relational schemas into MongoDB without rethinking access patterns
+- embedding unbounded history arrays
+- duplicating data without a repair or update policy
+- designing only for reads and forgetting writes
+- changing document shape without migration discipline
+
+## Summary
+
+MongoDB schema design is application-design work. Embed for locality, reference for independence, and make growth and consistency explicit.

@@ -63,3 +63,24 @@ body {
 .callout-content > :last-child {
   margin-bottom: 0;
 }
+
+html.reading-focus body {
+  background: var(--bg);
+}
+
+html.reading-focus [data-reading-nav],
+html.reading-focus [data-reading-toc],
+html.reading-focus [data-mobile-toc] {
+  display: none !important;
+}
+
+html.reading-focus [data-chapter-layout="true"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  max-width: 980px;
+}
+
+html.reading-focus [data-reading-region="true"] {
+  margin-inline: auto;
+  max-width: 760px;
+  width: 100%;
+}

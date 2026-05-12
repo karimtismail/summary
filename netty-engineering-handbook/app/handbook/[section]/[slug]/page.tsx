@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { compileMDX } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
-import { ChapterCheatSheet, ChapterSummary } from "@/components/docs/ChapterCheatSheet";
-import { ChapterLearningGuide } from "@/components/docs/ChapterLearningGuide";
-import { ChapterTakeaways } from "@/components/docs/ChapterTakeaways";
-import { ChapterTrail } from "@/components/docs/ChapterTrail";
+import { ChapterBrief } from "@/components/docs/ChapterBrief";
+import { ChapterReview } from "@/components/docs/ChapterCheatSheet";
+import { PrerequisitePanel } from "@/components/docs/PrerequisitePanel";
+import { ReadingTools } from "@/components/docs/ReadingTools";
 import { TableOfContents } from "@/components/docs/TableOfContents";
 import { PrevNext } from "@/components/docs/PrevNext";
 import { Sidebar } from "@/components/docs/Sidebar";
 import { mdxComponents } from "@/components/mdx";
-import { contentCurrentAsOf, findChapter } from "@/lib/navigation";
+import { findChapter } from "@/lib/navigation";
 import { getChapterSource, getStaticChapterParams } from "@/lib/mdx";
+import { getChapterPrerequisites, getStudyTrackForChapter } from "@/lib/studyTracks";
 
 type PageProps = {
   params: Promise<{ section: string; slug: string }>;
@@ -48,42 +49,46 @@ export default async function ChapterPage({ params }: PageProps) {
     components: mdxComponents,
     options: { parseFrontmatter: false }
   });
+  const prerequisites = getChapterPrerequisites(section, slug);
+  const studyTrack = getStudyTrackForChapter(section, slug);
 
   return (
-    <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8 xl:grid-cols-[264px_minmax(0,1fr)_224px]">
-      <aside className="hidden lg:block">
+    <main
+      data-chapter-layout="true"
+      className="mx-auto grid max-w-[1360px] gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8 xl:grid-cols-[264px_minmax(0,1fr)_224px]"
+    >
+      <aside className="hidden lg:block" data-reading-nav="true">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-4">
           <Sidebar />
         </div>
       </aside>
-      <article className="min-w-0">
-        <div className="mb-8 rounded-lg border border-border bg-panel p-4 shadow-inset sm:p-6 lg:mb-10">
-          <p className="mb-3 text-sm font-medium text-accent sm:mb-4">{chapter.sectionTitle}</p>
-          <div className="docs-prose">
-            <h1>{chapterSource.frontmatter.title ?? chapter.title}</h1>
-            <p>{chapterSource.frontmatter.description ?? chapter.description}</p>
-          </div>
-          <p className="mt-4 inline-flex rounded-md border border-border bg-card px-3 py-1.5 text-sm leading-6 text-muted sm:mt-5">
-            Current as of {contentCurrentAsOf}. Explains the problem before the API.
-          </p>
-          <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border pt-4 sm:mt-6 sm:grid-cols-5 sm:pt-5">
-            {["Problem", "Model", "Runtime", "Code", "Production"].map((step, index) => (
-              <div key={step} className="rounded-md border border-border bg-card px-3 py-2">
-                <p className="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</p>
-                <p className="mt-1 text-sm font-medium text-text">{step}</p>
-              </div>
-            ))}
-          </div>
+      <article className="min-w-0" data-reading-region="true" id="main-content">
+        <ChapterBrief
+          title={chapterSource.frontmatter.title ?? chapter.title}
+          description={chapterSource.frontmatter.description ?? chapter.description}
+          sectionSlug={section}
+          chapterSlug={slug}
+          sectionTitle={chapter.sectionTitle}
+          sheet={chapterSource.cheatSheet}
+        />
+        <ReadingTools title={chapterSource.frontmatter.title ?? chapter.title} mentalModel={chapterSource.cheatSheet.mentalModel} terms={prerequisites} />
+        <PrerequisitePanel
+          items={prerequisites}
+          title="Before you start"
+          intro={
+            studyTrack
+              ? `This chapter appears in the ${studyTrack.shortTitle} study path. If any term below feels fuzzy, read the short explanation here, then continue.`
+              : "If any term below feels fuzzy, read the short explanation here, then continue."
+            }
+        />
+        <div className="mb-8 rounded-xl border border-border bg-panel p-4 shadow-inset xl:hidden" data-mobile-toc="true">
+          <TableOfContents headings={chapterSource.headings} />
         </div>
-        <ChapterTrail section={section} slug={slug} />
-        <ChapterLearningGuide title={chapter.title} section={chapter.sectionTitle} sheet={chapterSource.cheatSheet} />
         <div className="docs-prose">{content}</div>
-        <ChapterTakeaways sheet={chapterSource.cheatSheet} />
-        <ChapterCheatSheet sheet={chapterSource.cheatSheet} />
-        <ChapterSummary summary={chapterSource.cheatSheet.summary} />
+        <ChapterReview sheet={chapterSource.cheatSheet} />
         <PrevNext section={section} slug={slug} />
       </article>
-      <aside className="hidden xl:block">
+      <aside className="hidden xl:block" data-reading-toc="true">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
           <TableOfContents headings={chapterSource.headings} />
         </div>

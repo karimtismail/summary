@@ -1,0 +1,90 @@
+---
+title: Data Types
+description: Redis design starts with choosing the right data type for the access pattern.
+---
+
+<StoryBlock title="Redis Is A Data-Structure Server">
+Redis is not only "fast key-value." It is a set of fast data structures exposed over the network.
+</StoryBlock>
+
+## Intuition
+
+Redis stores keys whose values can be strings, hashes, lists, sets, sorted sets, streams, and more. The data type defines what operations are natural and cheap.
+
+<Misconception
+  soundsLike="Redis values are just strings with JSON inside."
+  actually="Redis has native structures. Choosing the right one can remove parsing, reduce round trips, and clarify intent."
+  whyItMatters="A JSON blob can turn every small update into a full read-modify-write problem."
+/>
+
+## Real-world problem
+
+A leaderboard stored as JSON under one key forces the app to read, sort, update, and write the whole value. A sorted set lets Redis own ranking operations directly.
+
+## Mental model
+
+Choose the type by operation:
+
+- string for simple value or counter
+- hash for object-like fields
+- set for membership
+- sorted set for rank or score
+- list for simple ordered queue behavior
+- stream for replayable event log behavior
+
+## Visual explanation
+
+<TracePrompt>
+Trace the operation you need. The best Redis type is usually the one with the operation built in.
+</TracePrompt>
+
+<FlowDiagram title="Type selection">
+Operation -> Access pattern -> Redis data type -> Command shape -> Production limit
+</FlowDiagram>
+
+## Runtime behavior
+
+Redis executes commands against in-memory structures. Commands are usually very fast, but large values, broad scans, and hot keys can still hurt latency.
+
+<RuntimeTrace title="Redis command">
+Client | Sends a command such as `HGET` or `ZADD`.
+Server | Executes the operation against the key's data type.
+Memory | Updates or reads in-memory state.
+Reply | Returns the result to the client.
+</RuntimeTrace>
+
+## Code example
+
+```bash
+HSET user:42 name "Afaqy" plan "pro"
+HGET user:42 plan
+
+ZADD leaderboard 1800 user:42
+ZREVRANGE leaderboard 0 9 WITHSCORES
+```
+
+The hash supports field access. The sorted set supports ranking.
+
+<RecallPrompt question="why is JSON-in-a-string sometimes a Redis smell?">
+Because Redis cannot operate on the inner structure without the app reading and rewriting the whole blob.
+</RecallPrompt>
+
+## Production implications
+
+Name keys intentionally, define ownership, and avoid commands that scan huge keyspaces on hot paths. A fast server can still be damaged by an unsafe command pattern.
+
+## Performance implications
+
+Small targeted commands are Redis's strength. Large values, hot keys, broad scans, and high fan-out operations create latency spikes.
+
+## Common bugs
+
+- storing everything as JSON strings
+- using `KEYS` in production paths
+- creating hot counters without thinking about traffic
+- forgetting memory cost of large hashes or sets
+- choosing pub/sub when replay is required
+
+## Summary
+
+Redis design starts with data type choice. Pick the structure that matches the operation, then set limits before production traffic finds them.

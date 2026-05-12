@@ -1,0 +1,96 @@
+---
+title: Scaling and Security
+description: WebSocket production design needs auth, origin checks, load balancers, shared state, and broadcast limits.
+---
+
+<StoryBlock title="The Second Server Changes Everything">
+One WebSocket server can store connections in memory. Two servers need a plan for routing, shared events, and load balancing.
+</StoryBlock>
+
+## Intuition
+
+Scaling WebSocket means handling long-lived connections across multiple instances. Security means validating who can connect, what origin can connect, and what each message is allowed to do.
+
+<Misconception
+  soundsLike="If HTTP scales behind a load balancer, WebSocket scales the same way."
+  actually="WebSocket keeps connections open, so session affinity, shared pub/sub, and connection ownership matter."
+  whyItMatters="A message for a user may need to reach the server instance that owns that user's socket."
+/>
+
+## Real-world problem
+
+User 42 connects to server A. An order event is produced on server B. Without shared routing or a broker, server B cannot deliver the event to user 42's socket.
+
+## Mental model
+
+Production WebSocket needs:
+
+- authentication at handshake
+- authorization per message or topic
+- origin policy
+- connection ownership
+- shared event bus or broker
+- load balancer upgrade support
+- backpressure and rate limits
+
+## Visual explanation
+
+<TracePrompt>
+Trace where the socket lives. In a cluster, delivery may need a broker to find the right server.
+</TracePrompt>
+
+<FlowDiagram title="Cluster delivery">
+Business event -> Shared broker -> Server owning connection -> Permission check -> WebSocket send
+</FlowDiagram>
+
+## Runtime behavior
+
+Clients maintain long connections to one server instance. Load balancers must support upgrade and idle timeouts. A broker or shared pub/sub layer often distributes events across instances.
+
+<RuntimeTrace title="Multi-node delivery">
+Connect | Client lands on one server.
+Register | Server records user and subscriptions.
+Publish | Event enters shared broker.
+Dispatch | Owning server receives relevant event.
+Send | Server writes to connected socket.
+</RuntimeTrace>
+
+## Code example
+
+```text
+browser
+  -> load balancer
+  -> websocket server A
+
+order service
+  -> shared broker or pub/sub
+  -> websocket server A
+  -> browser socket
+```
+
+The event path must reach the node that owns the connection.
+
+<RecallPrompt question="what changes when you add a second WebSocket server?">
+Connection state is no longer global. You need routing, shared events, or sticky sessions to reach the right socket.
+</RecallPrompt>
+
+## Production implications
+
+Use TLS, origin checks, auth, per-message authorization, rate limits, message size limits, and timeout policies. Review load balancer idle timeout and upgrade support.
+
+## Performance implications
+
+Broadcast can multiply one event into thousands of writes. Slow clients need queue limits and disconnect policy.
+
+## Common bugs
+
+- no origin validation
+- assuming JWT at handshake authorizes every future message
+- no shared event bus across nodes
+- load balancer closes idle sockets
+- unbounded fan-out queues
+- reconnect storms after deploy or outage
+
+## Summary
+
+WebSocket production work is connection ownership, security, and fan-out control. The second server is where the real design begins.

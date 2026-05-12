@@ -1,0 +1,100 @@
+---
+title: Caching Patterns
+description: Redis caching works when reads, misses, invalidation, and stampede control are explicit.
+---
+
+<StoryBlock title="A Cache Is A Promise With An Expiration Date">
+A cache is useful because it can be wrong for a short time. The dangerous part is forgetting how wrong and for how long.
+</StoryBlock>
+
+## Intuition
+
+Redis is often used as a cache in front of a slower database or API. Cache-aside is common: app checks Redis, loads from source on miss, stores the value, then returns it.
+
+<Misconception
+  soundsLike="Adding Redis automatically makes the system faster."
+  actually="Redis helps only when hit rate is high, values are bounded, and invalidation is controlled."
+  whyItMatters="A bad cache adds complexity while still hitting the database under pressure."
+/>
+
+## Real-world problem
+
+A product page gets popular. On cache expiry, thousands of requests miss at once and all call the database. The cache made normal traffic faster but made the expiry moment dangerous.
+
+## Mental model
+
+Think through:
+
+- key design
+- miss behavior
+- fill behavior
+- TTL
+- invalidation
+- stampede protection
+
+## Visual explanation
+
+<TracePrompt>
+Trace a miss. The dangerous path is usually the fallback path, not the hit path.
+</TracePrompt>
+
+<ComicStrip title="Tiny scene: the hot miss">
+Request | The key is gone, so I will ask the database.
+Crowd | We all missed the same key at the same time.
+Cache guard | One request refills; everyone else waits or gets a safe stale value.
+</ComicStrip>
+
+<FlowDiagram title="Cache-aside">
+Request -> Redis GET -> Miss -> Load source -> SET with TTL -> Return value
+</FlowDiagram>
+
+## Runtime behavior
+
+Redis returns cached values quickly when present. On miss, the application owns the fallback and refill logic. Expiration removes keys after TTL, but many clients can notice the miss at the same time.
+
+<RuntimeTrace title="Cache request">
+Lookup | App asks Redis for the key.
+Hit | Value returns immediately.
+Miss | App loads from source of truth.
+Fill | App writes the value back with TTL.
+Expire | Redis removes the key later.
+</RuntimeTrace>
+
+## Code example
+
+```java
+Product cached = redis.get("product:" + id);
+if (cached != null) {
+    return cached;
+}
+
+Product product = database.loadProduct(id);
+redis.set("product:" + id, product, Duration.ofMinutes(10));
+return product;
+```
+
+This is the simple shape. Production systems usually add locking, request coalescing, jittered TTL, or stale-while-revalidate for hot keys.
+
+<RecallPrompt question="what is a cache stampede?">
+Many clients miss the same key at the same time and all call the slower source together.
+</RecallPrompt>
+
+## Production implications
+
+Track hit rate, miss rate, load latency, key cardinality, memory, and hot keys. A cache that hides database pain can also hide database dependency until it fails.
+
+## Performance implications
+
+Caching helps most when values are reused often and cheap to serialize. Large values or low hit rate can add network and memory cost without much benefit.
+
+## Common bugs
+
+- no TTL on cache keys
+- same TTL for every hot key, causing synchronized expiry
+- caching errors as if they were normal values
+- ignoring invalidation after writes
+- using Redis as source of truth without reliability planning
+
+## Summary
+
+Redis caching is a workflow, not a checkbox. Design the hit path, miss path, refill path, and invalidation path together.

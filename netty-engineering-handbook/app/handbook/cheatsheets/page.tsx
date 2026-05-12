@@ -19,14 +19,14 @@ export default async function CheatSheetsPage() {
   );
 
   return (
-    <main className="mx-auto grid max-w-[1440px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
+    <main id="main-content" className="mx-auto grid max-w-[1440px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
       <aside className="hidden lg:block">
         <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-4">
           <Sidebar />
         </div>
       </aside>
       <section className="min-w-0">
-        <div className="mb-10 rounded-xl border border-border bg-panel p-6 shadow-inset">
+        <div className="mb-10 rounded-xl border border-border bg-panel p-6 shadow-inset [overflow-wrap:anywhere]">
           <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-accent">
             <FileText className="h-5 w-5" />
           </div>
@@ -43,7 +43,7 @@ export default async function CheatSheetsPage() {
 
             return (
               <section key={section.slug} className="space-y-4">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3 [overflow-wrap:anywhere]">
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-panel text-accent-secondary">
                     <Icon className="h-4 w-4" />
                   </span>
@@ -58,23 +58,26 @@ export default async function CheatSheetsPage() {
                     <Link
                       key={chapter.href}
                       href={chapter.href}
-                      className="group rounded-lg border border-border bg-panel p-5 shadow-inset transition hover:border-accent/50 hover:bg-card"
+                      className="group min-w-0 rounded-lg border border-border bg-panel p-5 shadow-inset transition hover:border-accent/50 hover:bg-card [overflow-wrap:anywhere]"
                     >
                       <div className="mb-4 flex items-start justify-between gap-4">
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-medium text-accent">{chapter.sectionTitle}</p>
                           <h3 className="mt-1 text-lg font-semibold text-text">{chapter.title}</h3>
                         </div>
                         <ArrowRight className="h-4 w-4 shrink-0 text-muted transition group-hover:text-accent" />
                       </div>
+                      <p className="mb-4 rounded-md border border-accent-secondary/30 bg-accent-secondary/10 px-3 py-2 text-sm leading-6 text-muted [overflow-wrap:anywhere]">
+                        Before opening the chapter: what problem, runtime rule, and common bug belong here?
+                      </p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Problem</p>
-                          <p className="mt-1 text-sm leading-6 text-muted">{sheet.problem}</p>
+                          <p className="mt-1 text-sm leading-6 text-muted [overflow-wrap:anywhere]">{sheet.problem}</p>
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Keep</p>
-                          <p className="mt-1 text-sm leading-6 text-muted">{sheet.summary}</p>
+                          <p className="mt-1 text-sm leading-6 text-muted [overflow-wrap:anywhere]">{sheet.summary}</p>
                         </div>
                       </div>
                     </Link>

@@ -1,0 +1,94 @@
+---
+title: Production Debugging
+description: Docker debugging starts from process, logs, image, filesystem, network, and resource evidence.
+---
+
+<StoryBlock title="Do Not Guess Which Layer Failed">
+Docker failures feel mysterious when image, container, network, volume, and app logs are mixed together. Separate the layers and the bug gets smaller.
+</StoryBlock>
+
+## Intuition
+
+Debug containers by asking whether the image builds, the process starts, config is present, network resolves, mounts exist, and resources are sufficient.
+
+<Misconception
+  soundsLike="The container failed, so Docker is broken."
+  actually="Most failures are app startup, config, networking, permissions, mounts, or resource limits."
+  whyItMatters="Docker is the wrapper. You still need evidence from the process inside it."
+/>
+
+## Real-world problem
+
+A container exits immediately. The issue could be missing env var, wrong command, port already in use, failed database connection, permission error, or architecture mismatch.
+
+## Mental model
+
+Debug in this order:
+
+- status
+- logs
+- inspect config
+- image history
+- exec shell if running
+- network and DNS
+- mounts and permissions
+- CPU and memory
+
+## Visual explanation
+
+<TracePrompt>
+Trace from outside to inside. Container status first, app logs second, filesystem and network after that.
+</TracePrompt>
+
+<FlowDiagram title="Debug path">
+docker ps -> docker logs -> docker inspect -> exec or run shell -> network and mounts -> resource limits
+</FlowDiagram>
+
+## Runtime behavior
+
+Docker records container metadata, exit codes, logs, mounts, environment, and network settings. The app process still owns application-level failures.
+
+<RuntimeTrace title="Container failure">
+Start | Docker launches configured process.
+Fail | Process exits or becomes unhealthy.
+Observe | Logs and exit code show first evidence.
+Inspect | Runtime config reveals env, mounts, network.
+Fix | Change image, config, dependency, or resource limit.
+</RuntimeTrace>
+
+## Code example
+
+```bash
+docker ps -a
+docker logs app
+docker inspect app
+docker exec -it app sh
+docker network inspect project_default
+docker stats app
+```
+
+Use commands as evidence gathering, not ritual.
+
+<RecallPrompt question="what do you check first when a container exits immediately?">
+Check container status, exit code, and logs before changing the Dockerfile.
+</RecallPrompt>
+
+## Production implications
+
+Keep images inspectable, logs on stdout, health checks meaningful, and runtime config visible without exposing secrets. Avoid debugging by rebuilding blindly.
+
+## Performance implications
+
+CPU throttling, memory limits, disk IO, and network latency can look like app slowness. Check container metrics before tuning application code.
+
+## Common bugs
+
+- ignoring exit codes
+- changing Dockerfile before reading logs
+- debugging host networking while the problem is container DNS
+- assuming mounted files have expected permissions
+- missing architecture mismatch on ARM vs AMD64
+
+## Summary
+
+Docker debugging is evidence-first. Separate image, container, process, network, volume, and resource questions until the failing layer is obvious.

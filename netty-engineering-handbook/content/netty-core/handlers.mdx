@@ -5,37 +5,71 @@ description: Handlers package protocol behavior, but their state and threading r
 
 <StoryBlock title="A Handler Is A Responsibility Boundary">
 A good handler has one job: decode a boundary, encode a boundary, enforce a rule, or call application logic.
+
+If you can name the handler in one clear phrase, you can usually debug it under pressure. If the name needs five clauses, the handler is hiding several different failure modes.
 </StoryBlock>
 
 ## Intuition
 
-Handlers are where Netty code becomes readable or chaotic. Small handlers teach the pipeline what happens. Large handlers hide protocol state and failure behavior.
+Handlers are where Netty becomes readable or chaotic. Small handlers teach the pipeline what is happening. Large handlers hide protocol state, ownership rules, and failure behavior.
+
+The handler is not only a class. It is a contract about message type, threading, state, and memory ownership.
+
+<Misconception
+  soundsLike="A handler is just a convenient place to put whatever should happen after read."
+  actually="A handler is a protocol boundary. It should be honest about the input it consumes, the output it emits, and the state it owns."
+  whyItMatters="Blended handlers make it hard to tell whether a production failure came from framing, validation, business logic, writing, or memory ownership."
+/>
 
 ## Real-world problem
 
-A single handler parses bytes, authenticates users, calls a database, writes responses, and retries failures. When production breaks, nobody can tell whether the bug is framing, auth, IO, or business logic.
+A single handler parses bytes, authenticates users, calls a database, writes responses, and retries failures. When production breaks, nobody can tell whether malformed input, slow storage, double release, or write failure caused the incident.
+
+Split those responsibilities and the same incident becomes traceable.
 
 ## Mental model
 
-Design handlers around ownership:
+Before writing a handler, answer five questions:
 
 - what message type enters?
 - what message type leaves?
-- what state is retained?
+- what state is retained between calls?
 - which thread touches that state?
 - who releases reference-counted objects?
 
+If any answer is vague, the handler is not ready.
+
 ## Visual explanation
 
+<TracePrompt>
+Trace responsibility, not just control flow. A handler should make one promise and leave the next promise to the next handler.
+</TracePrompt>
+
+<ConceptSketch title="Handler as a small contract">
+Input boundary | The handler accepts one clear message shape.
+Decision boundary | It validates, transforms, rejects, or passes the message.
+Ownership boundary | It releases what it consumes and forwards what the next stage owns.
+</ConceptSketch>
+
 <FlowDiagram title="Handler responsibility">
-Receive one input type -> Validate boundary -> Emit one output type -> Release what you own
+Receive one input type -> Validate one boundary -> Emit one output type -> Release what you own
 </FlowDiagram>
 
 ## Runtime behavior
 
-Handlers run on the channel's EventLoop unless explicitly offloaded. A `@Sharable` handler may be reused across channels only when its state is safe for that use.
+Handlers run on the channel's EventLoop unless you explicitly place a handler behind a different executor. A `@Sharable` handler may be reused across channels only when its state is safe for that use.
 
-Reference-counted messages must be released by the handler that consumes them.
+Reference-counted messages need special attention. `SimpleChannelInboundHandler` releases messages it consumes by default after `channelRead0` returns. That is convenient when the handler truly consumes the message, and dangerous if you forward the same reference without retaining it.
+
+<RuntimeTrace title="Inbound handler decision">
+Receive | A decoded message enters the handler.
+Check type | The handler accepts the message type it was designed for.
+Decide | It transforms, rejects, forwards, or closes.
+Own memory | It releases consumed reference-counted objects or transfers ownership.
+Propagate | It fires the next event only when the next handler should see it.
+</RuntimeTrace>
+
+The runtime makes handler order deterministic. It does not make vague ownership safe.
 
 ## Code example
 
@@ -44,32 +78,50 @@ public final class AuthGate extends SimpleChannelInboundHandler<LoginMessage> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, LoginMessage msg) {
         if (!msg.token().isValid()) {
-            ctx.close();
+            ctx.writeAndFlush(AuthRejected.INSTANCE)
+                .addListener(ChannelFutureListener.CLOSE);
             return;
         }
-        ctx.fireChannelRead(msg.toSession());
+
+        AuthenticatedSession session = new AuthenticatedSession(msg.userId());
+        ctx.fireChannelRead(session);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        log.warn("auth failed", cause);
+        ctx.close();
     }
 }
 ```
 
-The handler consumes a login message and emits a session concept. It does not also parse bytes or write business responses.
+This handler consumes `LoginMessage` and emits `AuthenticatedSession`. It does not parse frames, call a database, or write normal business responses.
+
+<RecallPrompt question="when is `@Sharable` safe?">
+Only when the handler's state is safe across channels. Stateless handlers are usually fine. Per-channel mutable state should live on the channel, in handler context, or in a non-shared handler instance.
+</RecallPrompt>
 
 ## Production implications
 
-Name handlers by responsibility. Use metrics at handler boundaries. The best production pipeline makes it obvious where malformed input, slow work, and write pressure occur.
+Name handlers by responsibility and expose metrics at boundaries. Useful dimensions include malformed input, auth reject, decode failure, write failure, timeout, and close reason.
+
+In logs, include the handler name or protocol stage. "AuthGate rejected missing token" is operationally useful. "Channel closed" is only the last symptom.
 
 ## Performance implications
 
-Handlers should avoid unnecessary allocations, blocking calls, and cross-thread handoffs. When offloading is needed, make the return path explicit.
+Handlers should avoid unnecessary allocation, blocking calls, and cross-thread handoffs. If a handler must call slow business logic, move that work to a bounded executor or reactive service and return only the channel write back to the EventLoop.
+
+Do not split handlers just to create ceremony. Split them when each stage has a different type, failure mode, ownership rule, or performance profile.
 
 ## Common bugs
 
 - marking stateful handlers as `@Sharable`
-- forgetting to release consumed `ByteBuf` instances
+- forwarding a consumed `ByteBuf` from `SimpleChannelInboundHandler` without retaining it
+- forgetting to release consumed reference-counted messages
 - calling blocking services in `channelRead`
-- catching exceptions and continuing with corrupt state
+- catching exceptions and continuing with corrupt protocol state
 - mixing protocol parsing with business transactions
 
 ## Summary
 
-Handlers are small runtime contracts. Keep them narrow, typed, and honest about state ownership.
+Handlers are small runtime contracts. Keep them narrow, typed, and honest about state, threads, and memory ownership, and the pipeline becomes something you can understand during real failures.

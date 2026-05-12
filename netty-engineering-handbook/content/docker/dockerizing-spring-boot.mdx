@@ -1,0 +1,98 @@
+---
+title: Dockerizing Spring Boot
+description: A Spring Boot container needs a built artifact, runtime configuration, port mapping, and health thinking.
+---
+
+<StoryBlock title="The Jar Is Portable, The Runtime Is Not Magic">
+Spring Boot packages nicely, but the container still needs ports, environment, memory, logs, and dependencies wired clearly.
+</StoryBlock>
+
+## Intuition
+
+Dockerizing Spring Boot means building the jar, choosing a Java runtime image, copying the artifact, and starting it with environment-specific configuration outside the image.
+
+<Misconception
+  soundsLike="If the jar runs locally, putting it in Docker is just COPY and done."
+  actually="Docker changes filesystem, networking, environment, memory limits, and dependency addresses."
+  whyItMatters="Most containerized Spring bugs are runtime configuration bugs, not Java bugs."
+/>
+
+## Real-world problem
+
+The app starts in Docker but cannot connect to Redis. Locally it used `localhost`. In Compose, Redis is a service named `redis`. In production, it may be a managed endpoint.
+
+## Mental model
+
+Separate:
+
+- build artifact
+- runtime image
+- environment variables
+- dependency addresses
+- ports
+- logs and health
+
+## Visual explanation
+
+<TracePrompt>
+Trace config from outside the image. The same image should run in dev, test, and production with different environment.
+</TracePrompt>
+
+<FlowDiagram title="Spring Boot container">
+Build jar -> Runtime image -> Env vars -> App starts -> Logs stdout -> Health endpoint
+</FlowDiagram>
+
+## Runtime behavior
+
+Spring Boot reads environment variables and properties at startup. Docker maps host ports to container ports and captures stdout logs.
+
+<RuntimeTrace title="Spring container start">
+Create | Docker creates container from app image.
+Configure | Environment and port mappings are applied.
+Start | Java process runs as PID 1.
+Connect | App resolves dependencies by configured addresses.
+Observe | Logs and health reveal readiness.
+</RuntimeTrace>
+
+## Code example
+
+```dockerfile
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY target/app.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+```bash
+docker run -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=prod \
+  -e SPRING_DATA_REDIS_HOST=redis \
+  my-spring-app:latest
+```
+
+Do not bake secrets into the image.
+
+<RecallPrompt question="why should config live outside the image?">
+So the same image can run in different environments without rebuilding or leaking secrets into layers.
+</RecallPrompt>
+
+## Production implications
+
+Use health endpoints, structured logs, explicit memory settings, environment variables, and secret management. Know whether the container exits on startup failure.
+
+## Performance implications
+
+Container memory limits and JVM memory ergonomics interact. Watch startup time, heap, direct memory, CPU limits, and GC behavior.
+
+## Common bugs
+
+- using `localhost` for dependencies from inside the container
+- putting secrets in the Dockerfile
+- forgetting port publishing
+- ignoring JVM memory under container limits
+- writing logs to files inside the container instead of stdout
+
+## Summary
+
+A Spring Boot image should be reusable and environment-neutral. Runtime config, health, and dependency addresses belong outside the artifact.

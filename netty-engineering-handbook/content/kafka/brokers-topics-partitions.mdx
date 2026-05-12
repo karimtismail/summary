@@ -29,6 +29,12 @@ Partitions are the central unit:
 
 ## Visual explanation
 
+<ComicStrip title="Tiny scene: where ordering lives">
+Producer | I sent all order events to one topic.
+Partition | I am the ordered lane Kafka actually stores.
+Consumer group | Give each member a lane, but do not expect global order.
+</ComicStrip>
+
 <ArchitectureDiagram title="Topic spread across brokers">
 orders.events
   partition 0 -> broker A

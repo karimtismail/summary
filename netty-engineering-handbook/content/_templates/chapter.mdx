@@ -1,0 +1,75 @@
+---
+title: Topic Title
+description: One sentence explaining the production-relevant learning outcome.
+---
+
+<StoryBlock title="Short Scenario Title">
+Start with a concrete situation, not a definition. Name the misleading intuition, then state where the analogy or scenario stops.
+</StoryBlock>
+
+## Intuition
+
+Explain the first mental handle. Keep it concrete and avoid naming APIs too early.
+
+<Misconception
+  soundsLike="The tempting but wrong model."
+  actually="The corrected model in precise runtime terms."
+  whyItMatters="The production bug this misunderstanding creates."
+/>
+
+## Real-world problem
+
+Describe the incident, failure pressure, or design problem that makes this chapter necessary.
+
+## Mental model
+
+Give the smallest useful model. The reader should be able to repeat this in a code review.
+
+## Visual explanation
+
+<TracePrompt>
+Tell the reader what to trace: bytes, ownership, offsets, waits, queues, retries, or failure points.
+</TracePrompt>
+
+<FlowDiagram title="Visual title">
+Step one -> Step two -> Step three
+</FlowDiagram>
+
+## Runtime behavior
+
+Explain what the system actually does while the concept is active.
+
+<RuntimeTrace title="Runtime trace title">
+Step label | Concrete detail.
+Another step | Concrete detail.
+</RuntimeTrace>
+
+## Code example
+
+```java
+// Replace with a focused example that reinforces the model.
+```
+
+Explain what the code proves. Name the boundary, failure path, or ownership rule.
+
+<RecallPrompt question="one concrete recall question?">
+Provide the answer or expected reasoning here so the block can be used for self-checking.
+</RecallPrompt>
+
+## Production implications
+
+Name the metrics, logs, traces, limits, or operator decisions that prove the concept is working or failing.
+
+## Performance implications
+
+Name the scarce resource and the tradeoff. Avoid generic tuning advice.
+
+## Common bugs
+
+- Specific bug one
+- Specific bug two
+- Specific bug three
+
+## Summary
+
+One short paragraph that keeps the model, consequence, and rule.

@@ -1,0 +1,93 @@
+---
+title: Streams and Pub/Sub
+description: Redis pub/sub is live broadcast; Redis streams are replayable message logs with consumer groups.
+---
+
+<StoryBlock title="Live Shout Or Replayable Log">
+Pub/sub is like shouting in a room. Streams are like writing to a log that consumers can read from.
+</StoryBlock>
+
+## Intuition
+
+Redis pub/sub sends messages to subscribed clients that are online now. Redis streams store messages in an append-only structure so consumers can read, track progress, and use consumer groups.
+
+<Misconception
+  soundsLike="Pub/sub and streams are both messaging, so they are interchangeable."
+  actually="Pub/sub is live fan-out. Streams provide stored messages and consumption state."
+  whyItMatters="If a consumer must recover missed messages, pub/sub is usually the wrong primitive."
+/>
+
+## Real-world problem
+
+A chat typing indicator can use pub/sub because missed events are fine. Payment events need replay and acknowledgement, so a stream is a better fit.
+
+## Mental model
+
+Choose pub/sub when:
+
+- only online subscribers matter
+- messages can be missed
+- state lives elsewhere
+
+Choose streams when:
+
+- messages need replay
+- consumers track progress
+- groups share work
+
+## Visual explanation
+
+<TracePrompt>
+Trace what happens when the consumer is offline. That usually decides pub/sub vs stream.
+</TracePrompt>
+
+<FlowDiagram title="Messaging choice">
+Producer -> Live subscribers or stored stream -> Consumer progress -> Retry or ignore
+</FlowDiagram>
+
+## Runtime behavior
+
+Pub/sub publishes messages to current subscribers. Streams append entries with ids. Consumer groups track pending messages and allow consumers to cooperate.
+
+<RuntimeTrace title="Stream consumption">
+Add | Producer appends an entry with `XADD`.
+Read | Consumer group reads new entries.
+Process | Consumer handles the message.
+Ack | Consumer acknowledges completion.
+Recover | Pending entries can be inspected or retried.
+</RuntimeTrace>
+
+## Code example
+
+```bash
+XADD orders * orderId 42 status paid
+XGROUP CREATE orders payments $
+XREADGROUP GROUP payments worker-1 COUNT 10 STREAMS orders >
+XACK orders payments 1700000000000-0
+```
+
+The ids and group state make streams useful for recoverable workflows.
+
+<RecallPrompt question="when is pub/sub acceptable?">
+When only currently connected subscribers matter and missed messages are acceptable.
+</RecallPrompt>
+
+## Production implications
+
+Streams need trimming, pending-entry monitoring, retry rules, and dead-letter strategy. Pub/sub needs connection monitoring and clear expectations about message loss.
+
+## Performance implications
+
+Streams store data, so memory grows unless trimmed. Pub/sub can create fan-out pressure when many subscribers receive every message.
+
+## Common bugs
+
+- using pub/sub for durable workflows
+- never trimming streams
+- ignoring pending entries
+- treating consumer group ack as business success without idempotency
+- broadcasting huge messages to many subscribers
+
+## Summary
+
+Use pub/sub for live signals. Use streams when consumers need replay, progress, and recovery.

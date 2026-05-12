@@ -1,0 +1,97 @@
+---
+title: Containers and Images
+description: Docker images are packaged artifacts; containers are isolated processes created from images.
+---
+
+<StoryBlock title="Image Is Recipe, Container Is Running Process">
+An image does not run. A container runs from an image.
+
+That single distinction removes half the Docker confusion.
+</StoryBlock>
+
+## Intuition
+
+A Docker image contains a filesystem, metadata, and default startup instructions. A container is a running instance with isolation for process, filesystem view, environment, and networking.
+
+<Misconception
+  soundsLike="A container is a lightweight virtual machine."
+  actually="A container is an isolated process using the host kernel, not a full guest OS."
+  whyItMatters="Debugging containers is mostly process, filesystem, network, and configuration debugging."
+/>
+
+## Real-world problem
+
+Your app works locally but fails in Docker. The image has the code, but the container starts with a different environment, no database connection, wrong port, or missing mounted files.
+
+## Mental model
+
+Ask:
+
+- what image starts the container?
+- what command runs as PID 1?
+- what environment does it receive?
+- what ports are exposed or published?
+- what files are inside versus mounted?
+
+## Visual explanation
+
+<TracePrompt>
+Trace process startup. Docker is mostly packaging plus isolation around one main process.
+</TracePrompt>
+
+<ComicStrip title="Tiny scene: image versus container">
+Image | I am the packaged app and filesystem.
+Container | I am the running process with env, ports, and mounts.
+Debugging | Ask what changed at runtime before rebuilding everything.
+</ComicStrip>
+
+<FlowDiagram title="Docker runtime">
+Image -> docker run -> Container process -> Filesystem and env -> Network and mounts
+</FlowDiagram>
+
+## Runtime behavior
+
+Docker creates a container from an image, applies runtime configuration, and starts the configured command. Stopping or removing the container does not remove the image.
+
+<RuntimeTrace title="Container start">
+Pull or find | Docker locates the image.
+Create | Runtime settings become a container.
+Start | The configured command runs.
+Attach | Logs, ports, and mounts expose behavior.
+Exit | The process stops and container state remains until removed.
+</RuntimeTrace>
+
+## Code example
+
+```bash
+docker run --name web -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev my-app:latest
+docker ps
+docker logs web
+docker rm -f web
+```
+
+The image is `my-app:latest`. The container is `web`.
+
+<RecallPrompt question="what is the difference between image and container?">
+An image is the packaged artifact. A container is a process started from that artifact with runtime configuration.
+</RecallPrompt>
+
+## Production implications
+
+Make runtime configuration explicit. Do not bake secrets or environment-specific values into images. Know how containers start, stop, log, and receive configuration.
+
+## Performance implications
+
+Container overhead is usually less important than app behavior, IO, networking, and resource limits. Set memory and CPU expectations before production.
+
+## Common bugs
+
+- confusing `EXPOSE` with publishing a host port
+- rebuilding an image but running an old container
+- storing state inside a container filesystem
+- baking secrets into image layers
+- assuming a container has the same files as your host project
+
+## Summary
+
+Docker starts with image versus container. Keep build-time artifact and runtime process separate in your head.

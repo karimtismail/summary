@@ -1,0 +1,102 @@
+---
+title: Spring Boot with MongoDB
+description: Spring Boot can use MongoDB through Spring Data repositories, MongoTemplate, and explicit connection configuration.
+---
+
+<StoryBlock title="Repository Is Not A Modeling Shortcut">
+Spring Data MongoDB makes access pleasant. It does not choose the right document boundaries, indexes, or write guarantees for you.
+</StoryBlock>
+
+## Intuition
+
+In Spring Boot, you commonly connect to MongoDB with Spring Data MongoDB. Repositories are convenient for simple aggregate access. `MongoTemplate` is useful when queries, updates, or aggregation need more control.
+
+<Misconception
+  soundsLike="If the repository method exists, the query is production-ready."
+  actually="Repository methods still produce database queries that need indexes, limits, and clear semantics."
+  whyItMatters="A clean Java method can hide a slow collection scan."
+/>
+
+## Real-world problem
+
+A repository method for "customer id plus status, ordered by created time" looks harmless. In production, it needs an index matching customer, status, and created time. The Java method name is not the performance plan.
+
+## Mental model
+
+Use the abstraction level that keeps the database behavior visible:
+
+- repository for simple aggregate access
+- template for explicit query or update shape
+- aggregation when the database should compute
+- transactions only when the invariant needs them
+
+## Visual explanation
+
+<TracePrompt>
+Trace from controller to query. The Spring method name still becomes a MongoDB operation.
+</TracePrompt>
+
+<FlowDiagram title="Spring Boot MongoDB path">
+Controller -> Service -> Repository or MongoTemplate -> Driver -> MongoDB collection
+</FlowDiagram>
+
+## Runtime behavior
+
+Spring Boot configures MongoDB clients from properties such as the MongoDB URI. Spring Data maps Java objects to documents and can generate repository queries from method names or annotations.
+
+<RuntimeTrace title="Repository request">
+Call | A service calls a repository method.
+Map | Spring Data converts domain fields to document fields.
+Query | The driver sends the query to MongoDB.
+Index | MongoDB uses an index or scans.
+Return | Documents map back to Java objects.
+</RuntimeTrace>
+
+## Code example
+
+```properties
+spring.data.mongodb.uri=mongodb://localhost:27017/shop
+```
+
+```java
+@Document("orders")
+public record Order(
+    @Id String id,
+    String customerId,
+    String status,
+    Instant createdAt
+) {}
+
+interface OrderRepository extends MongoRepository<Order, String> {
+    List<Order> findTop20ByCustomerIdAndStatusOrderByCreatedAtDesc(
+        String customerId,
+        String status
+    );
+}
+```
+
+Pair this with an index that matches the query shape.
+
+<RecallPrompt question="when should you reach for `MongoTemplate`?">
+Use `MongoTemplate` when the query, update, projection, or aggregation needs to be explicit enough that a repository method name would hide too much.
+</RecallPrompt>
+
+## Production implications
+
+Keep connection strings, credentials, timeouts, and database names environment-specific. Log slow queries and make index creation a migration decision, not an accidental startup side effect.
+
+## Performance implications
+
+Mapping and repositories are usually not the bottleneck. Missing indexes, unbounded result sets, large documents, and chatty query patterns are.
+
+## Common bugs
+
+- trusting repository method names without checking generated query behavior
+- returning unbounded lists from APIs
+- ignoring indexes because code "looks clean"
+- mixing blocking MongoDB calls into reactive WebFlux paths
+- storing secrets in Docker images or committed properties
+
+## Summary
+
+Spring Boot makes MongoDB easy to call. You still need database-shaped thinking: document model, index shape, query bounds, and write guarantees.

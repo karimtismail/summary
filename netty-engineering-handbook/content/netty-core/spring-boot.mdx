@@ -1,0 +1,169 @@
+---
+title: Netty in Spring Boot
+description: How Spring WebFlux uses Reactor Netty, where Netty still matters, and how to customize it without fighting the stack.
+---
+
+<StoryBlock title="Spring Boot Is The Stage Manager">
+In a Spring Boot WebFlux app, you usually do not write raw Netty handlers. Boot creates the server, Reactor Netty adapts HTTP to reactive streams, and your code handles `Mono` and `Flux`.
+
+But Netty is still under the floorboards. When latency spikes, memory leaks, or blocked event loops appear, the Netty mental model explains what the Spring abstraction is protecting you from and what it cannot protect you from.
+</StoryBlock>
+
+## Intuition
+
+Spring Boot's reactive web stack uses `spring-boot-starter-webflux`. For reactive stack applications, that starter brings Reactor Netty by default through the Reactor Netty starter. Spring WebFlux itself is a non-blocking web framework built on Reactive Streams backpressure and can run on servers such as Netty.
+
+So the useful mental model is:
+
+- Spring Boot starts and configures the server
+- Reactor Netty provides the HTTP server and client runtime
+- Netty provides the event loops, channels, buffers, and pipeline mechanics
+- your controller or router returns a reactive pipeline
+
+<Misconception
+  soundsLike="If I use Spring Boot, I do not need to care about Netty."
+  actually="You usually do not code against Netty directly, but Netty's event-loop and memory rules still shape WebFlux production behavior."
+  whyItMatters="A blocking repository call in a WebFlux handler can starve Reactor Netty event-loop threads even though the code looks like normal Spring."
+/>
+
+## Real-world problem
+
+A team migrates a busy endpoint to WebFlux and Reactor Netty. The controller returns `Mono<UserDto>`, so everything looks reactive. Inside the service, it still calls a blocking JPA repository.
+
+Load increases. Thread names such as `reactor-http-nio-*` appear in stuck stack traces. Requests that do not use the slow repository also become slower. The issue is not "Netty is unstable." The issue is that the event-loop model was violated under a prettier API.
+
+## Mental model
+
+Use WebFlux and Reactor Netty when the request path can stay mostly non-blocking: streaming, SSE, WebSocket, many concurrent remote calls, reactive database drivers, gateway-style services, or long-lived HTTP connections.
+
+Prefer classic Spring MVC or virtual-thread-backed imperative code when your path is mostly blocking JDBC, JPA, filesystem work, or imperative SDKs and you do not want to manage reactive boundaries.
+
+The practical rule: **WebFlux is a non-blocking contract, not a faster annotation style.**
+
+## Visual explanation
+
+<TracePrompt>
+Trace the request through layers. The controller is not the first runtime boundary; Netty has already accepted bytes, decoded HTTP, and handed a reactive exchange to Spring.
+</TracePrompt>
+
+<ConceptSketch title="From socket to controller">
+Netty | Event loops accept sockets, decode bytes, and write responses.
+Reactor Netty | HTTP becomes reactive request and response publishers.
+Spring WebFlux | `DispatcherHandler`, controllers, routers, codecs, and filters run the application flow.
+</ConceptSketch>
+
+<ArchitectureDiagram title="Spring Boot WebFlux on Reactor Netty">
+client
+  -> Reactor Netty HttpServer
+  -> Netty EventLoop
+  -> Netty ChannelPipeline
+  -> Spring HttpHandler adapter
+  -> WebFlux filters / router / controller
+  -> Mono or Flux response
+  -> Reactor Netty write
+  -> socket
+</ArchitectureDiagram>
+
+## Runtime behavior
+
+Boot auto-configures the reactive web server when the WebFlux stack is active. Reactor Netty handles HTTP, connection lifecycle, compression, timeouts, metrics hooks, and event-loop resources. Spring WebFlux adapts requests into handler methods or functional routes and writes the response through reactive publishers.
+
+<RuntimeTrace title="A WebFlux request on Reactor Netty">
+Accept | Reactor Netty accepts the connection on a Netty event-loop thread.
+Decode | Netty and Reactor Netty decode HTTP bytes into request data.
+Adapt | Spring receives the exchange through an HTTP handler adapter.
+Handle | Filters, routes, controllers, codecs, and services build a `Mono` or `Flux`.
+Signal | Reactive demand controls how much data moves downstream.
+Write | Reactor Netty writes response signals back through Netty to the socket.
+</RuntimeTrace>
+
+If your chain blocks during handle, the problem travels backward into the event-loop runtime.
+
+## Code example
+
+Add WebFlux:
+
+```kotlin
+dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+}
+```
+
+Build a streaming endpoint:
+
+```java
+@SpringBootApplication
+public class GatewayApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(GatewayApplication.class, args);
+    }
+}
+
+@RestController
+final class StreamController {
+    @GetMapping(value = "/ticks", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    Flux<String> ticks() {
+        return Flux.interval(Duration.ofSeconds(1))
+            .map(index -> "tick " + index);
+    }
+}
+```
+
+Customize Reactor Netty through the Boot web server factory when the normal `server.*` properties are not enough:
+
+```java
+@Bean
+WebServerFactoryCustomizer<NettyReactiveWebServerFactory> nettyServerTuning() {
+    return factory -> factory.addServerCustomizers(server -> server
+        .compress(true)
+        .idleTimeout(Duration.ofSeconds(30)));
+}
+```
+
+Package note: Spring Boot 3.x exposes `NettyReactiveWebServerFactory` under `org.springframework.boot.web.embedded.netty`. Spring Boot 4.x exposes it under `org.springframework.boot.reactor.netty`. Let your IDE import the class for your Boot version.
+
+If you must wrap a legacy blocking call, isolate it immediately and keep it honest:
+
+```java
+Mono<Account> loadAccount(String id) {
+    return Mono.fromCallable(() -> blockingAccountClient.load(id))
+        .subscribeOn(Schedulers.boundedElastic());
+}
+```
+
+That is a bridge, not a design goal. Prefer non-blocking clients when the whole endpoint is meant to be reactive.
+
+<RecallPrompt question="what does WebFlux with Reactor Netty not magically fix?">
+It does not make blocking dependencies non-blocking. If the controller calls JDBC, JPA, filesystem APIs, or blocking SDKs on the event-loop path, the Netty runtime can still be starved.
+</RecallPrompt>
+
+## Production implications
+
+Learn the thread names. `reactor-http-nio-*` or native transport equivalents usually indicate Reactor Netty event-loop work. When those threads show blocking database calls, file reads, remote SDK waits, or `block()`, treat it as a design problem.
+
+Useful signals include request latency, connection count, response write latency, pending tasks, direct memory, allocator behavior, timeouts, and slow external dependencies. For WebFlux specifically, also watch reactive chain errors where the real failure occurs earlier than the final HTTP response.
+
+## Performance implications
+
+Reactor Netty shines when many connections spend time waiting for non-blocking IO. It does not turn CPU-heavy serialization, blocking persistence, or synchronous SDKs into free work.
+
+Tune in this order:
+
+- remove blocking from event-loop paths
+- use reactive drivers or isolate unavoidable blocking with bounded schedulers
+- set explicit timeouts and connection limits
+- measure direct memory and allocation behavior
+- customize Reactor Netty only after the default Boot setup is understood
+
+## Common bugs
+
+- adding `spring-boot-starter-web` and expecting the app to use Reactor Netty
+- using WebFlux controllers while keeping blocking JPA in the hot path
+- calling `.block()` inside controller, filter, or reactive operators
+- treating `boundedElastic` as unlimited capacity
+- customizing `HttpServer` without tests for compression, timeout, and proxy behavior
+- forgetting that `WebClient` commonly uses Reactor Netty too, so client and server resource choices can interact
+
+## Summary
+
+Spring Boot makes Netty approachable by hiding the low-level server wiring. It does not remove the runtime contract. If your WebFlux path stays non-blocking, Reactor Netty gives you a compact, scalable HTTP runtime. If the path blocks, the old EventLoop lesson comes back quickly: keep the lane moving.

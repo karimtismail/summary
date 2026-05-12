@@ -4,64 +4,122 @@ description: Netty futures represent asynchronous completion without blocking th
 ---
 
 <StoryBlock title="Completion Is An Event">
-In Netty, a write is not complete because you called `writeAndFlush`. It is complete when the channel operation finishes.
+Calling `writeAndFlush` starts work. It does not prove the bytes reached the socket, and it does not prove the write succeeded.
+
+In Netty, completion is another event. You attach the next step to that event and let the EventLoop continue breathing.
 </StoryBlock>
 
 ## Intuition
 
-Netty futures let code react to asynchronous IO completion. They are not an invitation to block. They are a continuation mechanism for event-driven code.
+A `ChannelFuture` is the result handle for an asynchronous channel operation: connect, bind, write, flush, close. The operation may finish later, fail later, or be observed by a listener.
+
+The future is not there so you can pause the EventLoop. It is there so you can continue when the operation has a real result.
+
+<Misconception
+  soundsLike="I need `sync()` after every Netty call so the code stays in order."
+  actually="Inside Netty callbacks, preserve order with listeners and pipeline flow. Blocking waits can deadlock or starve the EventLoop."
+  whyItMatters="The same thread you are waiting on may be the thread that must complete the operation you are waiting for."
+/>
 
 ## Real-world problem
 
-A handler writes a response and immediately closes the channel. Under load, some clients receive truncated data because the close races the write.
+A handler writes an error response and immediately closes the channel:
 
-The correct action is to close after the write future completes.
+```java
+ctx.writeAndFlush(errorResponse);
+ctx.close();
+```
+
+Under light load, the client may still receive the response. Under pressure, the close can race the write and the client sees a truncated or empty reply. The fix is not sleep. The fix is to make close depend on write completion.
 
 ## Mental model
 
-Start work, attach listener, return to the EventLoop. The listener is the next step in the workflow.
+Start work, attach listener, return. The listener is the next step in the protocol.
+
+That gives you three useful rules:
+
+- important writes should have completion handling
+- failure belongs near the operation that caused it
+- listeners must stay as small and non-blocking as handlers
 
 ## Visual explanation
 
+<TracePrompt>
+Trace the promise made by the operation. The question is not "did I call write?" It is "what happens when that write finishes or fails?"
+</TracePrompt>
+
+<ConceptSketch title="Write, then decide">
+Start write | `writeAndFlush` queues outbound work and returns a future.
+IO completes | Netty marks the future success or failure.
+Listener reacts | The next protocol action runs without blocking the loop.
+</ConceptSketch>
+
 <FlowDiagram title="Async completion">
-writeAndFlush -> ChannelFuture -> IO completes -> listener runs -> next action
+writeAndFlush -> ChannelFuture -> IO finishes -> listener runs -> next protocol action
 </FlowDiagram>
 
 ## Runtime behavior
 
-Listeners are usually notified on the EventLoop. Blocking inside a listener is just as dangerous as blocking inside a handler.
+Listeners are notified when the operation completes. In channel code, that usually means the listener runs on the EventLoop, so it inherits the same non-blocking rule.
 
-Futures also carry failure, which should be logged or handled at the protocol boundary.
+<RuntimeTrace title="Write future lifecycle">
+Create | The outbound operation returns a `ChannelFuture`.
+Queue | The write moves through outbound handlers.
+Flush | Bytes are attempted against the transport.
+Complete | The future is marked success or failure.
+Notify | Listeners run and inspect `isSuccess()` or `cause()`.
+</RuntimeTrace>
+
+The point is control flow. Futures let the result choose the next action without parking the runtime thread.
 
 ## Code example
 
 ```java
-ctx.writeAndFlush(response).addListener((ChannelFuture future) -> {
+ChannelFuture write = ctx.writeAndFlush(response);
+
+write.addListener((ChannelFuture future) -> {
     if (!future.isSuccess()) {
         log.warn("write failed", future.cause());
+        future.channel().close();
+        return;
+    }
+
+    if (shouldCloseAfterResponse(response)) {
         future.channel().close();
     }
 });
 ```
 
-This preserves async flow and keeps failure attached to the write that caused it.
+For the common "write then close" case, Netty already provides a listener:
+
+```java
+ctx.writeAndFlush(errorResponse).addListener(ChannelFutureListener.CLOSE);
+```
+
+Use `sync()` only at lifecycle boundaries that are outside the EventLoop, such as a main method waiting for server startup or shutdown.
+
+<RecallPrompt question="why is closing immediately after `writeAndFlush` risky?">
+Because the write has only been started or queued. Closing before the future completes can interrupt the outbound path before the bytes are fully written.
+</RecallPrompt>
 
 ## Production implications
 
-Attach listeners to important writes: authentication failures, protocol errors, large responses, and graceful shutdown messages. Silent write failures create confusing client behavior.
+Attach listeners to protocol-critical operations: authentication failures, large responses, graceful shutdown frames, close notifications, and server startup. Silent write failures create confusing client behavior because the application thinks it responded when the network did not.
+
+Log the channel, operation, and cause together. A disconnected client, closed channel, failed encoder, and backpressure symptom deserve different follow-up.
 
 ## Performance implications
 
-Listeners are cheap when they are small. They become expensive when they capture large objects, allocate per message, or perform blocking work.
+Listeners are cheap when they are tiny. They become expensive when they capture large objects, allocate per message, or call blocking services. If a listener must trigger business work, dispatch the business work elsewhere and return the final channel action to the EventLoop.
 
 ## Common bugs
 
-- calling `sync()` on the EventLoop
-- closing before a write completes
-- ignoring failed futures
-- doing heavy work in listeners
-- assuming listener order substitutes for protocol state
+- calling `sync()` or `await()` inside handlers or listeners
+- closing the channel before a write future completes
+- ignoring failed futures on important writes
+- doing heavy logging or serialization in a listener
+- assuming listener order can replace explicit protocol state
 
 ## Summary
 
-Netty futures let completion drive the next step. Use them to preserve event-driven flow without blocking the runtime that makes Netty fast.
+Netty futures keep the system event-driven. Start the operation, attach the next decision, and return the EventLoop to the rest of the server.

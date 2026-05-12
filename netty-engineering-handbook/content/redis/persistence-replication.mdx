@@ -1,0 +1,86 @@
+---
+title: Persistence and Replication
+description: Redis reliability depends on understanding RDB, AOF, replicas, and failover expectations.
+---
+
+<StoryBlock title="Fast Memory Still Needs A Recovery Story">
+Redis is fast because it works in memory. Production still needs an answer for restart, crash, and failover.
+</StoryBlock>
+
+## Intuition
+
+Redis persistence can save data to disk with snapshots, append-only files, or both. Replication copies data to replicas. These features improve recovery, but they do not make every write impossible to lose.
+
+<Misconception
+  soundsLike="If Redis has replication, my data is always safe."
+  actually="Replication can lag, failover has timing, and persistence settings decide recovery behavior."
+  whyItMatters="Redis can be a cache, a coordination tool, or a data store, but each role needs a different loss tolerance."
+/>
+
+## Real-world problem
+
+Redis stores login sessions. A primary fails before a recent write reaches the replica. Some users must log in again. That may be acceptable for sessions, but not for payments.
+
+## Mental model
+
+Decide the role:
+
+- cache: losing keys is acceptable
+- session store: losing recent keys hurts UX
+- queue or stream: losing messages may break workflows
+- primary database: Redis needs strict durability planning
+
+## Visual explanation
+
+<TracePrompt>
+Trace a write through memory, disk, and replica. Each hop changes the recovery story.
+</TracePrompt>
+
+<FlowDiagram title="Redis reliability path">
+Client write -> Primary memory -> Persistence policy -> Replica stream -> Failover behavior
+</FlowDiagram>
+
+## Runtime behavior
+
+RDB creates point-in-time snapshots. AOF logs write operations for replay. Replicas receive data from the primary and can be promoted during failover depending on deployment tooling.
+
+<RuntimeTrace title="Write reliability">
+Apply | Primary applies the command in memory.
+Persist | RDB or AOF policy may record it.
+Replicate | Updates are sent to replicas.
+Failover | A replica may become primary after failure.
+Recover | Redis reloads persisted data after restart.
+</RuntimeTrace>
+
+## Code example
+
+```conf
+appendonly yes
+appendfsync everysec
+```
+
+This common AOF setting trades some durability for performance. It is not the same as synchronous disk write for every command.
+
+<RecallPrompt question="why does Redis role matter before choosing persistence?">
+A cache, session store, queue, and primary data store tolerate different amounts of loss and recovery delay.
+</RecallPrompt>
+
+## Production implications
+
+Monitor replication lag, persistence errors, fork time, memory, failover events, and restart recovery time. Test failover instead of assuming it.
+
+## Performance implications
+
+Persistence and replication add work. Disk speed, fork behavior, and write rate can affect latency.
+
+## Common bugs
+
+- treating Redis as durable without checking persistence settings
+- disabling persistence on a replicated primary without understanding failure modes
+- ignoring replica lag
+- storing critical workflow data with cache-level guarantees
+- never testing restart and failover
+
+## Summary
+
+Redis reliability is configurable. Match persistence and replication to the role Redis plays in your system.

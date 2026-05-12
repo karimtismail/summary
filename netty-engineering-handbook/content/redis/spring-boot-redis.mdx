@@ -1,0 +1,95 @@
+---
+title: Spring Boot with Redis
+description: Spring Boot can use Redis for caching and data access, but serializers, keys, and TTLs must be deliberate.
+---
+
+<StoryBlock title="The Annotation Is Not The Cache Strategy">
+`@Cacheable` can make a method fast. It does not decide key design, TTL, invalidation, or serializer compatibility.
+</StoryBlock>
+
+## Intuition
+
+Spring Boot can connect to Redis through Spring Data Redis. Common entry points are Spring Cache abstraction, `RedisTemplate`, and reactive Redis APIs.
+
+<Misconception
+  soundsLike="If I add Redis and `@Cacheable`, caching is solved."
+  actually="The annotation only marks the call. You still own key design, TTL, invalidation, and failure behavior."
+  whyItMatters="A wrong cache key can leak data or return stale results to the wrong user."
+/>
+
+## Real-world problem
+
+`@Cacheable("products")` caches product data. Later the product is updated, but no invalidation runs. Users keep seeing stale data until TTL expires.
+
+## Mental model
+
+For every cached method, define:
+
+- key
+- value shape
+- serializer
+- TTL
+- invalidation trigger
+- fallback when Redis is down
+
+## Visual explanation
+
+<TracePrompt>
+Trace the cache key. If two users can produce the same wrong key, the bug is serious.
+</TracePrompt>
+
+<FlowDiagram title="Spring cache path">
+Controller -> Service method -> Cache lookup -> Method call on miss -> Redis write with TTL
+</FlowDiagram>
+
+## Runtime behavior
+
+Spring checks the cache before invoking the method. On miss, it runs the method and stores the result. Serialization decides how Java values become Redis bytes.
+
+<RuntimeTrace title="Cacheable call">
+Key | Spring creates a cache key.
+Lookup | Redis is checked.
+Hit | Cached value returns.
+Miss | Method executes.
+Store | Result is serialized and saved.
+</RuntimeTrace>
+
+## Code example
+
+```java
+@Cacheable(cacheNames = "products", key = "#id")
+public ProductDto getProduct(String id) {
+    return productClient.load(id);
+}
+
+@CacheEvict(cacheNames = "products", key = "#id")
+public void updateProduct(String id, UpdateProductRequest request) {
+    productClient.update(id, request);
+}
+```
+
+This shows lookup and invalidation as one workflow.
+
+<RecallPrompt question="what must you decide before using `@Cacheable`?">
+The key, TTL, value shape, serializer, invalidation rule, and Redis failure behavior.
+</RecallPrompt>
+
+## Production implications
+
+Configure timeouts, connection pools, serializers, and TTLs explicitly. Monitor cache hit rate, command latency, memory, evictions, and Redis availability.
+
+## Performance implications
+
+Caching saves slow work only when hit rate is good and serialization is cheap. Large objects and broad keys can make Redis a bottleneck instead of a relief.
+
+## Common bugs
+
+- no TTL on cached values
+- missing invalidation after writes
+- unsafe cache keys that ignore user or tenant
+- changing serializers and breaking old values
+- letting Redis outage take down non-critical reads
+
+## Summary
+
+Spring Boot makes Redis easy to use. A production cache still needs explicit keys, TTLs, invalidation, serialization, and failure policy.

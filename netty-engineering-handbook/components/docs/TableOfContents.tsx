@@ -2,10 +2,25 @@
 
 import { useEffect, useState } from "react";
 import type { TocHeading } from "@/lib/handbook";
+import { getChapterSectionByHeading } from "@/lib/chapterSections";
 import { cn } from "@/lib/utils";
 
 export function TableOfContents({ headings }: { headings: TocHeading[] }) {
   const [activeId, setActiveId] = useState(headings[0]?.id);
+  const h2Headings = headings.filter((heading) => heading.level === 2);
+  const journey = [
+    { label: "Start", ids: ["intuition", "real-world-problem"] },
+    { label: "Understand", ids: ["mental-model", "visual-explanation", "runtime-behavior"] },
+    { label: "Try", ids: ["code-example"] },
+    { label: "Use safely", ids: ["production-implications", "performance-implications", "common-bugs"] },
+    { label: "Remember", ids: ["summary"] }
+  ]
+    .map((step) => {
+      const available = h2Headings.filter((heading) => step.ids.includes(heading.id));
+      const first = available[0];
+      return first ? { ...step, href: `#${first.id}`, active: available.some((heading) => heading.id === activeId) } : null;
+    })
+    .filter(Boolean) as Array<{ label: string; ids: string[]; href: string; active: boolean }>;
 
   useEffect(() => {
     const elements = headings.map((heading) => document.getElementById(heading.id)).filter(Boolean) as HTMLElement[];
@@ -25,26 +40,51 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
     return () => observer.disconnect();
   }, [headings]);
 
-  if (!headings.length) return null;
+  if (!h2Headings.length) return null;
 
   return (
-    <nav aria-label="Table of contents" className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">On this page</p>
-      <div className="space-y-1">
-        {headings.map((heading) => (
+    <nav aria-label="Lesson journey" className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Lesson journey</p>
+        <p dir="rtl" lang="ar" className="mt-1 text-xs leading-5 text-muted/80">
+          امشي واحدة واحدة.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        {journey.map((step) => (
           <a
-            key={heading.id}
-            href={`#${heading.id}`}
+            key={step.label}
+            href={step.href}
+            aria-current={step.active ? "location" : undefined}
             className={cn(
-              "block border-l border-border py-1.5 pr-2 text-sm leading-5 text-muted transition hover:border-accent hover:text-text",
-              heading.level === 3 ? "pl-5" : "pl-3",
-              activeId === heading.id && "border-accent text-text"
+              "block rounded-md border border-border bg-panel px-3 py-2 text-sm leading-5 text-muted transition hover:border-accent hover:text-text",
+              step.active && "border-accent bg-card text-text"
             )}
           >
-            {heading.text}
+            {step.label}
           </a>
         ))}
       </div>
+      <details className="rounded-lg border border-border bg-panel/55 p-3">
+        <summary className="cursor-pointer list-none text-xs font-medium text-muted transition hover:text-text">All small sections</summary>
+        <div className="mt-3 space-y-1">
+          {h2Headings.map((heading) => {
+            const section = getChapterSectionByHeading(heading.text);
+            return (
+              <a
+                key={heading.id}
+                href={`#${heading.id}`}
+                className={cn(
+                  "block border-l border-border py-1 pl-3 pr-2 text-xs leading-5 text-muted transition hover:border-accent hover:text-text",
+                  activeId === heading.id && "border-accent text-text"
+                )}
+              >
+                {section?.navLabel ?? heading.text}
+              </a>
+            );
+          })}
+        </div>
+      </details>
     </nav>
   );
 }

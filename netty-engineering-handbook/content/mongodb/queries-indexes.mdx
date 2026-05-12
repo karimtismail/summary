@@ -1,0 +1,93 @@
+---
+title: Queries and Indexes
+description: MongoDB query performance depends on matching query shape to index shape.
+---
+
+<StoryBlock title="Indexes Are The Map, Not The Engine">
+A query tells MongoDB what you want. An index tells MongoDB how to find it without walking the whole collection.
+</StoryBlock>
+
+## Intuition
+
+An index stores selected fields in a structure that can be searched efficiently. Without a useful index, a query may scan many documents. With the wrong index, the query can still be slow.
+
+<Misconception
+  soundsLike="If a collection has indexes, queries are fast."
+  actually="A query is fast when an index matches its filter, sort, and cardinality needs."
+  whyItMatters="Random indexes add write cost without helping the actual workload."
+/>
+
+## Real-world problem
+
+The app lists active orders by customer, sorted by creation time. An index on `status` alone helps only part of the problem. The query shape needs customer, status, and sort considered together.
+
+## Mental model
+
+Start from the exact query:
+
+- filter fields
+- sort fields
+- result size
+- selectivity
+- update frequency
+
+Then design the index.
+
+## Visual explanation
+
+<TracePrompt>
+Trace what MongoDB must eliminate. Good indexes narrow the search early.
+</TracePrompt>
+
+<FlowDiagram title="Query performance path">
+Query shape -> Candidate documents -> Index scan -> Document fetch -> Sort or return
+</FlowDiagram>
+
+## Runtime behavior
+
+MongoDB can use indexes for equality filters, ranges, sorts, and compound access patterns. `explain` helps show whether the query uses an index, scans too much, or sorts in memory.
+
+<RuntimeTrace title="Indexed query">
+Parse | MongoDB receives the filter and sort.
+Plan | The planner chooses a candidate index.
+Scan | The index narrows matching keys.
+Fetch | Matching documents are read.
+Return | Results are sorted or streamed back.
+</RuntimeTrace>
+
+## Code example
+
+```javascript
+db.orders.createIndex({ customerId: 1, status: 1, createdAt: -1 })
+
+db.orders.find({
+  customerId: "customer-7",
+  status: "PAID"
+}).sort({ createdAt: -1 }).limit(20)
+```
+
+The compound index follows the common query shape: equality fields first, then the sort field for the page.
+
+<RecallPrompt question="what should you know before adding an index?">
+Know the query filter, sort, result size, and how often the indexed fields change.
+</RecallPrompt>
+
+## Production implications
+
+Use `explain` and slow query logs. Index builds and new indexes can affect writes and storage. Treat index changes like production changes, not casual fixes.
+
+## Performance implications
+
+Indexes speed reads but slow writes and consume memory and disk. Too many indexes can make write-heavy systems worse.
+
+## Common bugs
+
+- adding indexes without looking at real query shapes
+- indexing low-cardinality fields alone
+- forgetting the sort part of a query
+- keeping unused indexes forever
+- assuming a dev-sized collection reveals production scan cost
+
+## Summary
+
+MongoDB query work is evidence work. Start with the query, verify with `explain`, and keep only indexes that serve real access patterns.

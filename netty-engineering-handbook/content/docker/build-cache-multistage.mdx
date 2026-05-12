@@ -1,0 +1,92 @@
+---
+title: Build Cache and Multi-stage Builds
+description: Docker build cache and multi-stage builds make images faster to build and smaller to run.
+---
+
+<StoryBlock title="Build Big, Ship Small">
+A build image can contain compilers, tests, and dependency tooling. A runtime image should contain only what the app needs to run.
+</StoryBlock>
+
+## Intuition
+
+Multi-stage Dockerfiles use multiple `FROM` instructions. One stage builds the artifact. A later stage copies only the output needed for runtime.
+
+<Misconception
+  soundsLike="Multi-stage builds are only for tiny images."
+  actually="They also separate build tools from runtime tools and make the artifact easier to inspect."
+  whyItMatters="Production images should not carry compilers, source files, and build caches unless they are needed."
+/>
+
+## Real-world problem
+
+A Java image includes Maven cache, source files, test reports, and the JDK. The app only needs a JRE and the built jar. Multi-stage builds separate those concerns.
+
+## Mental model
+
+Use stages:
+
+- build stage: dependency download, compile, test, package
+- runtime stage: copy jar or binary, run app
+- optional debug stage: keep tools only when needed
+
+## Visual explanation
+
+<TracePrompt>
+Trace what crosses from build to runtime. Only copy the artifact you actually need.
+</TracePrompt>
+
+<FlowDiagram title="Multi-stage build">
+Build stage -> Compile and package -> Runtime stage -> Copy artifact -> Start app
+</FlowDiagram>
+
+## Runtime behavior
+
+Each `FROM` starts a new stage. `COPY --from=...` copies files from one stage into another. The final stage becomes the image you run unless a target is specified.
+
+<RuntimeTrace title="Multi-stage image">
+Stage one | Build tools compile the app.
+Artifact | A jar, binary, or static bundle is produced.
+Stage two | Runtime base starts clean.
+Copy | Only selected output enters runtime image.
+Run | Container starts with fewer files and tools.
+</RuntimeTrace>
+
+## Code example
+
+```dockerfile
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /app
+COPY . .
+RUN ./mvnw package -DskipTests
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=build /app/target/app.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+This keeps build tooling out of the runtime image.
+
+<RecallPrompt question="what should cross from build stage to runtime stage?">
+Only the artifact and runtime files needed to start the app.
+</RecallPrompt>
+
+## Production implications
+
+Keep final images small, inspectable, and pinned to trusted bases. Build stages can include tools; runtime stages should be more restrained.
+
+## Performance implications
+
+Build cache reduces rebuild time. Multi-stage builds reduce runtime image size. Both depend on stable layer order.
+
+## Common bugs
+
+- copying the entire build context into the runtime stage
+- losing cache by changing early Dockerfile steps often
+- skipping tests forever in build stage
+- using a JDK runtime when only a JRE is needed
+- hiding needed runtime files in the build stage
+
+## Summary
+
+Build cache saves time. Multi-stage builds keep runtime images focused. Build big when needed, ship only what runs.

@@ -1,0 +1,93 @@
+---
+title: Handshake and Upgrade
+description: A WebSocket connection starts as HTTP and upgrades to a persistent bidirectional protocol.
+---
+
+<StoryBlock title="It Starts As HTTP, Then Stops Being HTTP">
+WebSocket begins with an HTTP request. If the server accepts, the connection upgrades and both sides keep the same TCP connection open for messages.
+</StoryBlock>
+
+## Intuition
+
+The WebSocket handshake uses HTTP headers to request an upgrade. A successful response uses status `101 Switching Protocols`. After that, data moves as WebSocket frames, not normal HTTP request-response messages.
+
+<Misconception
+  soundsLike="WebSocket is just repeated HTTP polling."
+  actually="WebSocket upgrades one connection and then keeps it open for bidirectional frames."
+  whyItMatters="Connection lifecycle, auth, load balancing, and backpressure are different from normal REST requests."
+/>
+
+## Real-world problem
+
+A dashboard needs live prices. Polling every second wastes requests and adds delay. WebSocket lets the server push updates on one long-lived connection.
+
+## Mental model
+
+The connection has two phases:
+
+- HTTP handshake: authenticate, check origin, negotiate upgrade
+- WebSocket session: exchange frames until close or failure
+
+## Visual explanation
+
+<TracePrompt>
+Trace the boundary where HTTP stops. That is where normal request-response assumptions stop too.
+</TracePrompt>
+
+<ComicStrip title="Tiny scene: the protocol switch">
+Browser | Can this HTTP request become WebSocket?
+Server | Auth, origin, and upgrade headers look valid: 101.
+Session | Now we speak frames until close or failure.
+</ComicStrip>
+
+<FlowDiagram title="Upgrade flow">
+HTTP GET with Upgrade -> Server validates -> 101 Switching Protocols -> WebSocket frames
+</FlowDiagram>
+
+## Runtime behavior
+
+The client sends an upgrade request. The server verifies headers, policy, authentication, and origin. If accepted, it returns a switching-protocols response and both sides start using WebSocket framing.
+
+<RuntimeTrace title="Opening handshake">
+Request | Client asks to upgrade using HTTP headers.
+Validate | Server checks auth, origin, path, and protocol.
+Accept | Server responds with 101 when allowed.
+Switch | HTTP request-response semantics end.
+Message | Client and server exchange frames.
+</RuntimeTrace>
+
+## Code example
+
+```javascript
+const socket = new WebSocket("wss://example.com/live");
+
+socket.onopen = () => socket.send(JSON.stringify({ type: "subscribe", topic: "prices" }));
+socket.onmessage = (event) => console.log(JSON.parse(event.data));
+socket.onclose = () => console.log("connection closed");
+```
+
+Use `wss://` in production so the connection is protected by TLS.
+
+<RecallPrompt question="what does status 101 mean in WebSocket?">
+It means the server accepted the protocol switch from HTTP to WebSocket on the same connection.
+</RecallPrompt>
+
+## Production implications
+
+Authentication and origin checks happen before the session becomes long-lived. Proxies and load balancers must support upgrade and long idle connections.
+
+## Performance implications
+
+WebSocket reduces repeated HTTP overhead for realtime use cases, but long-lived connections consume memory, file descriptors, and server state.
+
+## Common bugs
+
+- assuming REST auth middleware is enough after upgrade
+- using `ws://` in production instead of `wss://`
+- load balancer timeouts closing idle sockets
+- forgetting origin checks for browser clients
+- not defining reconnect behavior
+
+## Summary
+
+WebSocket is an HTTP upgrade into a persistent bidirectional connection. Design the handshake like the front door of your realtime system.

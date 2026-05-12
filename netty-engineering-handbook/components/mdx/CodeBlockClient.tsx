@@ -49,7 +49,7 @@ export function CodeBlockClient({ code, language }: { code: string; language: st
       <div className="flex items-center justify-between border-b border-border bg-panel/70 px-4 py-2">
         <div>
           <span className="font-mono text-xs text-muted">{language}</span>
-          <p className="mt-1 hidden text-xs text-muted sm:block">What to notice: focus on the boundary, failure path, and ownership rule.</p>
+          <p className="mt-1 hidden text-xs text-muted sm:block">Trace boundary, failure path, and ownership.</p>
         </div>
         <button
           type="button"
@@ -62,20 +62,23 @@ export function CodeBlockClient({ code, language }: { code: string; language: st
         </button>
       </div>
       {hydrated ? (
-        <SyntaxHighlighter
-          language={language}
-          style={oneDark}
-          customStyle={{
-            margin: 0,
-            background: "transparent",
-            padding: "1.15rem",
-            fontSize: "0.875rem",
-            lineHeight: "1.75"
-          }}
-          codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
-        >
-          {code}
-        </SyntaxHighlighter>
+        <div className="overflow-x-auto">
+          <SyntaxHighlighter
+            language={language}
+            style={oneDark}
+            customStyle={{
+              margin: 0,
+              maxWidth: "100%",
+              background: "transparent",
+              padding: "1.15rem",
+              fontSize: "0.875rem",
+              lineHeight: "1.75"
+            }}
+            codeTagProps={{ style: { fontFamily: "var(--font-mono)" } }}
+          >
+            {code}
+          </SyntaxHighlighter>
+        </div>
       ) : (
         <pre className="m-0 overflow-x-auto bg-transparent p-[1.15rem] text-sm leading-7 text-[#abb2bf]">
           <code style={{ fontFamily: "var(--font-mono)" }}>{code}</code>

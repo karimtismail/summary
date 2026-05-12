@@ -1,0 +1,95 @@
+---
+title: Server Design
+description: WebSocket servers need connection registries, routing, backpressure, and cleanup rules.
+---
+
+<StoryBlock title="Realtime Means You Own State">
+An HTTP request arrives and leaves. A WebSocket connection stays. That means the server now owns connection state.
+</StoryBlock>
+
+## Intuition
+
+A WebSocket server tracks active connections, user identity, subscriptions, outbound queues, and cleanup. Message routing decides which sessions should receive each event.
+
+<Misconception
+  soundsLike="A WebSocket server just broadcasts every message to everyone."
+  actually="Production systems route by user, room, topic, permission, and capacity."
+  whyItMatters="Naive broadcast becomes a security problem and a performance problem."
+/>
+
+## Real-world problem
+
+A chat app has rooms. If the server keeps only a global list of sockets, it either sends too much to everyone or has no clear way to remove users from one room.
+
+## Mental model
+
+Design these maps:
+
+- connection id to socket
+- user id to connections
+- topic or room to subscribers
+- outbound queue per connection
+- cleanup on close
+
+## Visual explanation
+
+<TracePrompt>
+Trace a message from business event to exact connections. The server should know who receives it and why.
+</TracePrompt>
+
+<FlowDiagram title="Server routing">
+Business event -> Topic or user lookup -> Permission check -> Connection queue -> WebSocket send
+</FlowDiagram>
+
+## Runtime behavior
+
+When a client connects, the server authenticates and stores session state. When a message arrives, the server validates it, updates subscriptions or state, and writes outbound messages to target sessions.
+
+<RuntimeTrace title="Broadcast to a room">
+Event | A room message is created.
+Lookup | Server finds subscribed sessions.
+Filter | Permissions and connection health are checked.
+Queue | Messages enter outbound queues.
+Send | Frames are written to sockets.
+Cleanup | Failed sessions are removed.
+</RuntimeTrace>
+
+## Code example
+
+```java
+Map<String, Set<WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
+
+void publishToRoom(String roomId, String payload) {
+    for (WebSocketSession session : roomSessions.getOrDefault(roomId, Set.of())) {
+        if (session.isOpen()) {
+            session.sendMessage(new TextMessage(payload));
+        }
+    }
+}
+```
+
+This is the idea, not the final production version. Real systems need backpressure, error handling, and cleanup.
+
+<RecallPrompt question="why is per-connection cleanup important?">
+Because dead sessions otherwise stay in routing maps and keep receiving attempted sends.
+</RecallPrompt>
+
+## Production implications
+
+Track active connections, subscription counts, send failures, queue depth, message size, and close reasons. Make cleanup idempotent.
+
+## Performance implications
+
+One event can fan out to many sockets. Backpressure and queue limits protect the server when clients are slow.
+
+## Common bugs
+
+- global broadcast without authorization
+- unbounded outbound queues
+- no cleanup on abnormal disconnect
+- blocking business work on IO threads
+- storing connection state only in memory when scaling across servers
+
+## Summary
+
+WebSocket server design is connection-state design. Know who is connected, what they subscribed to, and how slow clients are handled.

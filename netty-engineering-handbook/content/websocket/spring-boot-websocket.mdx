@@ -1,0 +1,95 @@
+---
+title: Spring Boot WebSocket
+description: Spring can expose raw WebSocket handlers or STOMP messaging over WebSocket.
+---
+
+<StoryBlock title="Raw Socket Or Messaging Contract">
+Spring can give you a low-level WebSocket handler. It can also give you STOMP destinations, subscriptions, and broker-style messaging.
+</StoryBlock>
+
+## Intuition
+
+Use raw WebSocket when you want a small custom protocol. Use STOMP when clients need destinations, subscriptions, and messaging semantics on top of WebSocket.
+
+<Misconception
+  soundsLike="Spring WebSocket always means STOMP."
+  actually="Spring supports both raw WebSocket handlers and STOMP over WebSocket."
+  whyItMatters="Choosing STOMP adds useful structure, but also a messaging model you must understand."
+/>
+
+## Real-world problem
+
+A collaborative editor needs custom binary patches and tight control. Raw WebSocket may fit. A notification system with `/topic/orders` subscriptions may fit STOMP.
+
+## Mental model
+
+Choose by contract:
+
+- raw WebSocket: you define message envelope and routing
+- STOMP: destinations, subscriptions, broker relay or simple broker
+- HTTP fallback is separate and should not be assumed
+
+## Visual explanation
+
+<TracePrompt>
+Trace who owns routing. In raw WebSocket, your app owns it. In STOMP, destinations become the routing contract.
+</TracePrompt>
+
+<FlowDiagram title="Spring WebSocket choice">
+Handshake -> Raw handler or STOMP endpoint -> App routing or broker destination -> Client message
+</FlowDiagram>
+
+## Runtime behavior
+
+Spring registers endpoints and handlers. For STOMP, messages are mapped to destinations and can be handled by annotated methods or brokered to subscribers.
+
+<RuntimeTrace title="STOMP message">
+Connect | Client opens WebSocket and STOMP session.
+Subscribe | Client subscribes to a destination.
+Send | Client or server sends a STOMP message.
+Route | Spring handler or broker processes destination.
+Deliver | Subscribers receive frames.
+</RuntimeTrace>
+
+## Code example
+
+```java
+@Configuration
+@EnableWebSocketMessageBroker
+class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws").setAllowedOrigins("https://example.com");
+    }
+
+    public void configureMessageBroker(MessageBrokerRegistry registry) {
+        registry.enableSimpleBroker("/topic");
+        registry.setApplicationDestinationPrefixes("/app");
+    }
+}
+```
+
+This creates a STOMP endpoint and a simple in-memory broker for `/topic` destinations.
+
+<RecallPrompt question="when is raw WebSocket simpler than STOMP?">
+When your app has a small custom protocol and does not need broker-style destinations or subscriptions.
+</RecallPrompt>
+
+## Production implications
+
+Set allowed origins, authenticate the handshake, define message size limits, and decide whether the simple broker is enough or a real broker relay is needed.
+
+## Performance implications
+
+STOMP adds structure and overhead. Raw WebSocket can be leaner but pushes routing, validation, and subscription logic onto your code.
+
+## Common bugs
+
+- allowing every origin
+- using the simple broker for workloads that need cross-node scale
+- mixing auth assumptions between HTTP and WebSocket sessions
+- no message envelope versioning
+- no limits on message size or send rate
+
+## Summary
+
+Spring Boot can support raw WebSocket or STOMP. Choose based on the messaging contract you want, not because one annotation looks convenient.

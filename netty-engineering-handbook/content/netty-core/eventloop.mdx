@@ -4,65 +4,114 @@ description: The EventLoop is the single-threaded execution lane that gives each
 ---
 
 <StoryBlock title="One Lane Per Channel">
-Netty's EventLoop is not just a thread. It is an ordering guarantee for channel IO and channel tasks.
+Think of a Netty channel as a conversation assigned to one fast lane. The lane is not private forever; one EventLoop usually serves many channels. What it gives you is ordering.
+
+That is the trade: Netty removes a lot of locking pressure by keeping channel work on the same lane, then asks you to keep that lane moving.
 </StoryBlock>
 
 ## Intuition
 
-An EventLoop owns a set of channels and runs their IO events, scheduled tasks, and pipeline callbacks on one thread. That model reduces locking because channel state is usually touched by the same execution lane.
+An `EventLoop` runs IO events, scheduled tasks, and pipeline callbacks for channels registered to it. For a single channel, those callbacks are ordered by the EventLoop, so handler code can often reason about connection state without defensive locking.
+
+The important word is **often**. The moment you share mutable objects across channels, jump to another executor, or retain work for later, you have to make the ownership and thread boundary explicit again.
+
+<Misconception
+  soundsLike="Netty gives every connection its own thread."
+  actually="Each channel is assigned to one EventLoop, and one EventLoop can serve many channels."
+  whyItMatters="Blocking one callback can delay every other channel assigned to the same EventLoop."
+/>
 
 ## Real-world problem
 
-Without a clear threading model, a decoder, writer, timeout task, and business handler can mutate the same connection state at the same time. Bugs become timing dependent.
+A chat server receives a message, validates it, writes it to storage, then broadcasts it. If the storage call blocks inside `channelRead`, the EventLoop cannot keep selecting sockets, running decoders, firing timeouts, or flushing writes for the other channels it owns.
 
-The EventLoop narrows that surface.
+The bug does not look like "my code blocked one user." It looks like random latency across unrelated users.
 
 ## Mental model
 
-Each channel is assigned to one EventLoop. Do quick IO work on that loop. Offload blocking or CPU-heavy work elsewhere. Return results back to the channel through the EventLoop.
+Treat the EventLoop like a small, fast dispatcher:
+
+- do socket and protocol work on it
+- move blocking or CPU-heavy work off it
+- return to it when touching the channel again
+- never wait on it for work that needs the same loop to complete
+
+The clean question is: **does this callback finish fast enough that I would be comfortable putting hundreds of channels behind it?**
 
 ## Visual explanation
 
+<TracePrompt>
+Trace the callback, not just the socket. The moment work enters the EventLoop queue, every slow step becomes a queueing problem for the channels on that loop.
+</TracePrompt>
+
+<ComicStrip title="Tiny scene: the blocked lane">
+Developer | I only blocked one request for a second.
+EventLoop | I was holding many channels in the same lane.
+Instructor | Move slow work away, then come back only to touch the channel.
+</ComicStrip>
+
+<ConceptSketch title="The lane under load">
+Ready socket | The transport reports a channel with bytes available.
+Handler callback | The EventLoop runs the decoder and handler in order.
+Slow work | A blocking call parks the lane while other channels wait.
+</ConceptSketch>
+
 <FlowDiagram title="EventLoop ownership">
-Socket readiness -> EventLoop thread -> ChannelPipeline -> Handler callbacks -> queued writes
+Socket readiness -> EventLoop thread -> ChannelPipeline -> Handler callback -> queued write -> socket flush
 </FlowDiagram>
 
 ## Runtime behavior
 
-The EventLoop selects ready channels, runs IO callbacks, drains task queues, and flushes writes. If a handler blocks, every channel assigned to that EventLoop waits.
+The EventLoop repeatedly checks for IO readiness, executes queued tasks, runs scheduled work, and flushes outbound bytes. Listener callbacks, handler methods, and scheduled tasks often run on that same loop.
 
-That is the central Netty rule: never block the EventLoop.
+<RuntimeTrace title="One EventLoop cycle">
+Select | Ask the transport which registered channels are ready.
+Read | Pull bytes or readiness events from the channel.
+Fire inbound | Move the event through the channel pipeline.
+Drain tasks | Run tasks submitted from application threads.
+Run timers | Execute scheduled timeouts or delayed work.
+Flush | Push queued outbound bytes toward the socket.
+</RuntimeTrace>
+
+That cycle is why the central rule is simple: **do not block the EventLoop**.
 
 ## Code example
 
 ```java
 public void channelRead(ChannelHandlerContext ctx, Object msg) {
-    EventLoop loop = ctx.channel().eventLoop();
-    loop.execute(() -> {
-        // Runs later on the same EventLoop, preserving channel ordering.
+    EventLoop eventLoop = ctx.channel().eventLoop();
+
+    eventLoop.execute(() -> {
+        // Runs later on the same EventLoop, preserving this channel's ordering.
         ctx.writeAndFlush(msg);
     });
 }
 ```
 
-This is safe for channel state, but it still must be fast.
+That handoff is safe for channel ordering, but it is not a license to do slow work. If the task can block, put the slow part on a separate executor and schedule only the final channel write back onto the EventLoop.
+
+<RecallPrompt question="what else is delayed when a handler blocks the EventLoop?">
+Every channel assigned to that same EventLoop can wait behind the blocked callback: reads, writes, timeouts, listeners, and tasks queued from other threads.
+</RecallPrompt>
 
 ## Production implications
 
-Monitor EventLoop pending tasks, long callbacks, blocked thread stack traces, and write backlog. A single slow handler can degrade many connections.
+Look for EventLoop starvation before changing random tuning knobs. Useful evidence includes long stack traces on `nioEventLoop` or `reactor-http-nio` threads, growing write backlog, delayed timeouts, high pending task counts, and latency spikes across unrelated connections.
+
+In Spring Boot WebFlux, Reactor Netty sits under the HTTP server by default. That means the same EventLoop rule applies even if your code is written as controllers and `Mono` or `Flux` pipelines instead of raw Netty handlers.
 
 ## Performance implications
 
-The model avoids many locks and context switches, but it concentrates latency risk. Keep EventLoop work bounded, allocation-light, and non-blocking.
+The EventLoop model avoids many locks and context switches, but it concentrates latency risk. Keep callbacks bounded, allocation-light, and non-blocking. More EventLoops can help only after the work is already non-blocking and the bottleneck is actual IO parallelism.
 
 ## Common bugs
 
-- doing database calls in a handler
-- waiting on a `Future` inside the EventLoop
-- scheduling unbounded tasks back onto the loop
-- assuming more EventLoops always improves throughput
-- sharing mutable handler state across channels
+- calling JDBC, JPA, filesystem, or remote blocking clients inside a callback
+- calling `sync()`, `await()`, or `block()` on an EventLoop thread
+- scheduling unbounded work back onto the EventLoop
+- increasing worker thread count to hide blocking code
+- sharing mutable handler state across channels without a clear safety rule
 
 ## Summary
 
-The EventLoop is the heart of Netty's runtime. Respect its single-threaded contract and it gives you predictable, scalable IO.
+The EventLoop is the runtime promise that makes Netty feel predictable: a channel's IO work moves through one ordered lane. Keep the lane fast, and Netty scales. Block it, and one slow decision becomes many slow connections.

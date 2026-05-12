@@ -18,9 +18,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="en" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:border focus:border-border focus:bg-panel focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-text"
+          >
+            Skip to content
+          </a>
           <ReadingProgress />
           <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur-xl">
             <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2.5 px-4 sm:gap-3 sm:px-6 lg:px-8">
@@ -34,16 +40,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </Link>
               <nav className="ml-auto hidden items-center gap-6 text-sm text-muted md:flex">
                 <Link className="transition hover:text-text" href="/handbook">
-                  Topics
+                  Study
+                </Link>
+                <Link className="transition hover:text-text" href="/handbook/study/netty">
+                  Netty
+                </Link>
+                <Link className="transition hover:text-text" href="/handbook/study/kafka">
+                  Kafka
                 </Link>
                 <Link className="transition hover:text-text" href="/handbook/cheatsheets">
                   Cheat sheets
-                </Link>
-                <Link className="transition hover:text-text" href="/handbook/foundations/blocking-io">
-                  Start
-                </Link>
-                <Link className="transition hover:text-text" href="/handbook/mastery/architecture">
-                  Architecture
                 </Link>
               </nav>
               <span className="hidden rounded-md border border-border bg-panel px-2.5 py-1 text-xs text-muted xl:inline">Current as of {contentCurrentAsOf}</span>

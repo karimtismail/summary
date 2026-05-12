@@ -1,0 +1,102 @@
+---
+title: Documents and Collections
+description: MongoDB stores application state as BSON documents grouped into collections.
+---
+
+<StoryBlock title="The Row Is Not The Center">
+In MongoDB, the first question is not "what tables do I need?" It is "what document does the application usually need together?"
+
+A document can hold nested fields and arrays, so it can represent a small aggregate of related state instead of forcing every relationship into a join.
+</StoryBlock>
+
+## Intuition
+
+A MongoDB document is a BSON record. A collection is a group of documents. Documents in the same collection usually represent the same business idea, but MongoDB does not force every document to have the exact same fields.
+
+That flexibility is useful only when it is intentional. A flexible model without naming rules becomes mystery JSON.
+
+<Misconception
+  soundsLike="MongoDB has no schema, so I do not need to design one."
+  actually="MongoDB does not force a rigid table schema, but your application still has a data model, validation rules, and query shapes."
+  whyItMatters="The database will accept messy documents long before the production system becomes easy to understand."
+/>
+
+## Real-world problem
+
+An order page needs the order id, status, customer summary, line items, totals, and delivery address. If those fields are always read together, scattering them across many places makes every page load become coordination work.
+
+MongoDB lets that screen read one document when that is the honest aggregate.
+
+## Mental model
+
+Model a document around a business object and its common access pattern:
+
+- keep fields together when they are read and updated together
+- keep independent lifecycles separate
+- avoid growing one document without bounds
+- name fields as contracts, not convenient dumps
+
+## Visual explanation
+
+<TracePrompt>
+Trace one screen or API response. The document should make the common read boring.
+</TracePrompt>
+
+<FlowDiagram title="Document thinking">
+User action -> API needs state -> One aggregate document -> App renders or decides
+</FlowDiagram>
+
+## Runtime behavior
+
+MongoDB stores documents in collections and returns matching documents to queries. The `_id` field uniquely identifies a document in a collection. BSON supports nested structures, arrays, dates, object ids, numbers, strings, and other types.
+
+<RuntimeTrace title="Reading one order">
+Request | The app receives `GET /orders/42`.
+Query | The collection is searched for the order document.
+Return | MongoDB returns the BSON document.
+Map | The driver maps it to application data.
+Use | The app renders or changes state.
+</RuntimeTrace>
+
+## Code example
+
+```json
+{
+  "_id": "order-42",
+  "status": "PAID",
+  "customer": {
+    "id": "customer-7",
+    "name": "Afaqy"
+  },
+  "items": [
+    { "sku": "book-1", "quantity": 2, "price": 30 }
+  ],
+  "total": 60
+}
+```
+
+This is a good shape if the order screen usually needs the customer summary and line items with the order. It is a bad shape if `items` can grow forever or if customer details need independent lifecycle guarantees.
+
+<RecallPrompt question="what is the first MongoDB modeling question?">
+Ask what the application reads and updates together. Then decide what belongs in one document.
+</RecallPrompt>
+
+## Production implications
+
+Use validation when document shape matters. Track document size growth, optional fields, and migration plans. MongoDB flexibility is powerful, but production readers still need predictable contracts.
+
+## Performance implications
+
+A good document model can reduce joins and round trips. A bad model creates large documents, duplicate updates, and awkward indexes. Design from access patterns, then measure.
+
+## Common bugs
+
+- treating MongoDB as a place to dump arbitrary JSON
+- embedding arrays that grow without limits
+- copying mutable data into many documents without an update strategy
+- using one collection for unrelated business concepts
+- forgetting that the app still owns schema discipline
+
+## Summary
+
+MongoDB starts with documents. Keep related state together when the application uses it together, and keep lifecycle boundaries separate when they are truly independent.

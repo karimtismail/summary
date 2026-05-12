@@ -4,70 +4,122 @@ description: ByteBuf is Netty's high-performance, reference-counted byte contain
 ---
 
 <StoryBlock title="Memory Is Part Of The Protocol">
-In high-throughput servers, bytes are not passive data. They are allocated, retained, sliced, pooled, and released.
+In high-throughput servers, bytes are not passive data. They are allocated, pooled, sliced, retained, and released.
+
+The useful analogy is ownership, not possession forever. A handler may receive a reference briefly, pass it onward, retain it for later, or release it. Those choices are part of the protocol.
 </StoryBlock>
 
 ## Intuition
 
-Netty's `ByteBuf` improves on `ByteBuffer` with separate reader and writer indexes, pooling support, slicing, composite buffers, and reference counting.
+Netty's `ByteBuf` improves on `ByteBuffer` with separate reader and writer indexes, pooling support, direct memory, slicing, composite buffers, and reference counting.
 
-That power comes with stricter ownership rules.
+That power comes with a rule the JVM will not enforce for you: if you take ownership of a reference-counted buffer, you must release it exactly when your ownership ends.
+
+<Misconception
+  soundsLike="A slice is a safe copy of the bytes."
+  actually="A slice usually shares the same underlying memory. `retainedSlice` shares memory and takes a new reference. `copy` creates independent storage."
+  whyItMatters="If the parent buffer is released while a shared slice is still used, the later failure looks like corrupted parsing even though the parser was correct."
+/>
 
 ## Real-world problem
 
-A decoder receives a buffer, slices a frame, stores it for later, and returns. Later the frame is corrupt or released. The bug is not decoding logic. It is memory ownership.
+A decoder receives a buffer, slices a frame, stores it for a later async write, and returns. Later the frame fails with an access error or contains unexpected bytes.
+
+The decoding math may be perfect. The ownership story is broken.
 
 ## Mental model
 
 Ask two questions every time a `ByteBuf` crosses a handler boundary:
 
 - who owns this reference now?
-- when is it released?
+- when is that owner responsible for `release()`?
 
-If you retain it, you must release it.
+Then ask one more question before storing it: **do I need independent bytes, or just a retained view?**
 
 ## Visual explanation
 
+<TracePrompt>
+Trace ownership, not only bytes. Watch when the reference count changes and which handler becomes responsible for release.
+</TracePrompt>
+
+<ConceptSketch title="The buffer custody chain">
+Allocator | A pooled direct buffer starts with an owner.
+Handler | A decoder reads, slices, copies, retains, or forwards.
+Release | The final owner returns the reference when it is done.
+</ConceptSketch>
+
 <FlowDiagram title="ByteBuf ownership">
-Allocator -> ByteBuf -> Handler consumes or retains -> Reference count changes -> Release
+Allocator -> ByteBuf -> Handler consumes or retains -> Ownership changes -> Final release
 </FlowDiagram>
 
 ## Runtime behavior
 
-`ByteBuf` tracks readable and writable regions separately. Reference-counted buffers are deallocated when their count reaches zero. Derived buffers may share underlying memory.
+`ByteBuf` has separate reader and writer indexes. Reads such as `readInt()` advance the reader index. Peeks such as `getInt(...)` do not. Reference-counted buffers are deallocated when their count reaches zero.
 
-Leaks usually appear under load because rare paths skip release.
+Derived buffers are the part that surprises people. A view can share the same underlying memory while having its own indexes.
+
+<RuntimeTrace title="Derived buffer decision">
+readBytes | Copies bytes into a new buffer and advances the reader index.
+getBytes | Copies bytes without advancing the reader index.
+slice | Shares memory and does not take new reference ownership.
+retainedSlice | Shares memory and increments ownership for the new reference.
+copy | Creates independent memory with independent lifetime.
+</RuntimeTrace>
+
+Leaks usually appear under load because rare error paths skip release.
 
 ## Code example
 
 ```java
-ByteBuf frame = in.readRetainedSlice(length);
-try {
-    ctx.fireChannelRead(frame);
-} catch (Throwable error) {
-    frame.release();
-    throw error;
+protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+    if (in.readableBytes() < 4) {
+        return;
+    }
+
+    int length = in.getInt(in.readerIndex());
+    if (in.readableBytes() < 4 + length) {
+        return;
+    }
+
+    in.skipBytes(4);
+    ByteBuf frame = in.readRetainedSlice(length);
+
+    try {
+        out.add(new Frame(frame));
+    } catch (Throwable error) {
+        frame.release();
+        throw error;
+    }
 }
 ```
 
-`readRetainedSlice` makes ownership explicit for the next handler.
+`readRetainedSlice` makes the next object own a reference to the frame bytes. That object now needs a release path when the frame is consumed.
+
+<RecallPrompt question="which operation changes ownership: `slice`, `retainedSlice`, or `copy`?">
+`slice` shares memory without taking a new reference. `retainedSlice` shares memory and takes a reference that must be released. `copy` creates independent memory with a separate lifetime.
+</RecallPrompt>
 
 ## Production implications
 
 Enable leak detection in lower environments and during incident reproduction. Treat leak reports as ownership bugs, not logging noise.
 
+Watch direct memory, allocator metrics, suspicious buffer growth, and decode error paths together. Heap graphs alone can miss the problem because high-performance Netty buffers often live outside the Java heap.
+
 ## Performance implications
 
-Pooling and direct memory reduce allocation pressure and copying, but leaks move failures off heap. Monitor direct memory, allocator metrics, and GC behavior together.
+Pooling, direct memory, and slicing reduce copying and allocation pressure. They also move mistakes out of the comfortable world of garbage collection. Use copies when independence is more important than saving a copy, and use retained views when you can prove the lifetime.
+
+The fastest buffer strategy is the one that is correct first and measured second.
 
 ## Common bugs
 
-- using a sliced buffer after the parent was released
-- retaining without releasing
-- releasing a buffer passed to another owner
-- converting every message to `byte[]`
-- ignoring leak detector warnings
+- using a sliced buffer after the parent reference was released
+- retaining without releasing on every path
+- releasing a buffer after transferring ownership to the next handler
+- converting every message to `byte[]` for convenience
+- ignoring leak detector warnings because the app "still works"
+- storing pooled buffers in queues without clear lifetime rules
 
 ## Summary
 
-`ByteBuf` is central to Netty performance. Correctness depends on clear ownership and disciplined release behavior.
+`ByteBuf` is central to Netty performance. Correctness depends on clear ownership, deliberate slicing, and disciplined release behavior.

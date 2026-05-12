@@ -13,6 +13,7 @@ import {
   Route,
   ShieldCheck
 } from "lucide-react";
+import { chapterStructure } from "@/lib/chapterSections";
 
 export type Chapter = {
   title: string;
@@ -73,7 +74,7 @@ export const sections: Section[] = [
   {
     title: "Netty Internals",
     slug: "netty-core",
-    description: "Event loops, pipelines, memory ownership, and async completion.",
+    description: "Event loops, pipelines, memory ownership, async completion, and Spring Boot integration.",
     domain: "Framework internals",
     level: "Applied",
     focus: "Production framework",
@@ -83,7 +84,8 @@ export const sections: Section[] = [
       { title: "Futures", slug: "futures", description: "Async completion without blocking the EventLoop." },
       { title: "Pipeline", slug: "pipeline", description: "Inbound and outbound events as a protocol assembly line." },
       { title: "Handlers", slug: "handlers", description: "Reusable protocol behavior with sharp ownership rules." },
-      { title: "ByteBuf", slug: "bytebuf", description: "Reference-counted memory for high-throughput systems." }
+      { title: "ByteBuf", slug: "bytebuf", description: "Reference-counted memory for high-throughput systems." },
+      { title: "Netty in Spring Boot", slug: "spring-boot", description: "How WebFlux uses Reactor Netty and where the Netty rules still matter." }
     ]
   },
   {
@@ -121,6 +123,73 @@ export const sections: Section[] = [
       { title: "Schema Evolution", slug: "schema-evolution", description: "How event contracts survive version changes." },
       { title: "Stream Processing", slug: "stream-processing", description: "Stateful event processing, windows, joins, and changelogs." },
       { title: "Operations and Performance", slug: "operations-performance", description: "Lag, retention, compaction, partitions, and tuning." }
+    ]
+  },
+  {
+    title: "MongoDB",
+    slug: "mongodb",
+    description: "Documents, schema design, indexes, writes, replication, sharding, and Spring Boot usage.",
+    domain: "Document database",
+    level: "Applied",
+    focus: "Operational data",
+    icon: Database,
+    chapters: [
+      { title: "Documents and Collections", slug: "documents-collections", description: "How MongoDB stores application state as BSON documents." },
+      { title: "Schema Design", slug: "schema-design", description: "Embedding, references, and modeling for read and write patterns." },
+      { title: "Queries and Indexes", slug: "queries-indexes", description: "Find data quickly without guessing at performance." },
+      { title: "Writes and Transactions", slug: "writes-transactions", description: "Atomicity, write concern, and when transactions are the right tool." },
+      { title: "Replication and Sharding", slug: "replication-sharding", description: "Durability, failover, scale-out, and shard-key risk." },
+      { title: "Spring Boot with MongoDB", slug: "spring-boot-mongodb", description: "Repositories, templates, connection config, and production boundaries." }
+    ]
+  },
+  {
+    title: "Redis",
+    slug: "redis",
+    description: "Data structures, caching, expiration, eviction, persistence, streams, and Spring Boot usage.",
+    domain: "In-memory data",
+    level: "Applied",
+    focus: "Latency and coordination",
+    icon: Database,
+    chapters: [
+      { title: "Data Types", slug: "data-types", description: "Strings, hashes, lists, sets, sorted sets, streams, and the shape of Redis data." },
+      { title: "Caching Patterns", slug: "caching-patterns", description: "Cache-aside, write-through thinking, invalidation, and stampede control." },
+      { title: "Expiration and Eviction", slug: "expiration-eviction", description: "TTL, memory limits, and what Redis removes when memory is tight." },
+      { title: "Persistence and Replication", slug: "persistence-replication", description: "RDB, AOF, replicas, failover expectations, and data-loss boundaries." },
+      { title: "Streams and Pub/Sub", slug: "streams-pubsub", description: "Real-time messaging choices and when streams beat fire-and-forget pub/sub." },
+      { title: "Spring Boot with Redis", slug: "spring-boot-redis", description: "Cache manager, RedisTemplate, serializers, and operational footguns." }
+    ]
+  },
+  {
+    title: "Docker",
+    slug: "docker",
+    description: "Containers, images, Dockerfiles, Compose, networking, volumes, builds, and production debugging.",
+    domain: "Runtime packaging",
+    level: "Applied",
+    focus: "Local to production",
+    icon: Blocks,
+    chapters: [
+      { title: "Containers and Images", slug: "containers-images", description: "The difference between a runnable process and the image it starts from." },
+      { title: "Dockerfiles and Layers", slug: "dockerfiles-layers", description: "How build instructions become cached image layers." },
+      { title: "Compose, Networks, and Volumes", slug: "compose-networking-volumes", description: "Run multi-service stacks without losing data or connectivity." },
+      { title: "Build Cache and Multi-stage Builds", slug: "build-cache-multistage", description: "Make images smaller and builds faster without hiding complexity." },
+      { title: "Dockerizing Spring Boot", slug: "dockerizing-spring-boot", description: "Package a Java service with predictable config, ports, and health checks." },
+      { title: "Production Debugging", slug: "production-debugging", description: "Inspect containers, logs, mounts, resources, and image assumptions." }
+    ]
+  },
+  {
+    title: "WebSocket",
+    slug: "websocket",
+    description: "Handshake, frames, lifecycle, server design, Spring Boot support, scaling, and security.",
+    domain: "Realtime protocol",
+    level: "Applied",
+    focus: "Bidirectional apps",
+    icon: RadioTower,
+    chapters: [
+      { title: "Handshake and Upgrade", slug: "handshake-upgrade", description: "How HTTP becomes a persistent WebSocket connection." },
+      { title: "Frames and Lifecycle", slug: "frames-lifecycle", description: "Text, binary, ping, pong, close, and connection state." },
+      { title: "Server Design", slug: "server-design", description: "Connection registries, message routing, backpressure, and failure paths." },
+      { title: "Spring Boot WebSocket", slug: "spring-boot-websocket", description: "Raw WebSocket, STOMP, broker choices, and application boundaries." },
+      { title: "Scaling and Security", slug: "scaling-security", description: "Auth, origin checks, load balancers, sticky sessions, and broadcast pressure." }
     ]
   },
   {
@@ -182,24 +251,12 @@ export const contentCurrentAsOf = "May 2026";
 export const handbookName = "Engineering Systems Handbook";
 
 export const handbookStats = [
-  { value: "36", label: "chapters" },
-  { value: "7", label: "active tracks" },
-  { value: "5", label: "future lanes" }
+  { value: "60", label: "chapters" },
+  { value: "6", label: "study paths" },
+  { value: "11", label: "reference groups" }
 ];
 
-export const chapterStructure = [
-  "Intuition",
-  "Real-world problem",
-  "Mental model",
-  "Visual explanation",
-  "Runtime or operational behavior",
-  "Code example",
-  "Production implications",
-  "Performance implications",
-  "Common bugs",
-  "Cheat sheet",
-  "Summary"
-];
+export { chapterStructure };
 
 export const learningPaths = [
   {

@@ -1,0 +1,83 @@
+---
+title: Replication and Sharding
+description: MongoDB uses replication for durability and failover, and sharding for horizontal scale.
+---
+
+<StoryBlock title="Copies And Splits Solve Different Problems">
+Replication makes copies of data. Sharding splits data across machines. They are related in production, but they answer different questions.
+</StoryBlock>
+
+## Intuition
+
+A replica set keeps copies of data across nodes and elects a primary for writes. Sharding distributes a collection across shards using a shard key so storage and traffic can scale out.
+
+<Misconception
+  soundsLike="If I add sharding, MongoDB automatically becomes fast."
+  actually="Sharding helps only when the shard key spreads data and traffic well."
+  whyItMatters="A bad shard key creates hot shards, scatter-gather queries, and operational pain."
+/>
+
+## Real-world problem
+
+An orders collection grows beyond one server. Sharding by `createdAt` sends all new writes to the newest range. Sharding by a high-cardinality customer or tenant key may spread traffic better, but can hurt cross-tenant queries.
+
+## Mental model
+
+Replication asks: **how do I survive node failure?**
+
+Sharding asks: **how do I split data and traffic?**
+
+Shard-key design asks: **what will be evenly distributed and queryable later?**
+
+## Visual explanation
+
+<TracePrompt>
+Trace a write. It goes to a primary replica and, in sharded systems, to the shard chosen by the shard key.
+</TracePrompt>
+
+<FlowDiagram title="Scale and durability">
+Client write -> Router -> Shard by key -> Primary replica -> Replicas acknowledge
+</FlowDiagram>
+
+## Runtime behavior
+
+Replica sets elect a primary. Secondaries replicate data from the primary. In sharded clusters, routers direct operations to shards based on metadata and shard key ranges or hashes.
+
+<RuntimeTrace title="Sharded write path">
+Route | The client or router identifies the target shard.
+Write | The shard primary applies the write.
+Replicate | Replica set members copy the operation.
+Acknowledge | Write concern decides when success is returned.
+</RuntimeTrace>
+
+## Code example
+
+```javascript
+sh.shardCollection("shop.orders", { customerId: "hashed" })
+```
+
+A hashed key can spread writes, but it may not support range queries well. Shard keys are workload decisions, not style choices.
+
+<RecallPrompt question="what is the difference between replication and sharding?">
+Replication creates copies for availability and durability. Sharding splits data for scale and throughput.
+</RecallPrompt>
+
+## Production implications
+
+Shard keys are hard to change. Plan with real cardinality, write distribution, and query patterns. Monitor replication lag, primary elections, chunk balance, and hot shards.
+
+## Performance implications
+
+Targeted queries are cheaper than scatter-gather queries. A shard key that supports common filters can avoid sending one query to every shard.
+
+## Common bugs
+
+- choosing a shard key before understanding traffic
+- assuming replication increases write throughput
+- ignoring replica lag during reads
+- using monotonically increasing shard keys for heavy writes
+- treating scatter-gather queries as harmless
+
+## Summary
+
+Use replication for failure tolerance and sharding for scale. The shard key is the design decision that decides whether scale feels smooth or painful.

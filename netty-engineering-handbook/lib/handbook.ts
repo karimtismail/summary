@@ -1,4 +1,4 @@
-import { chapterStructure } from "@/lib/navigation";
+import { chapterStructure } from "@/lib/chapterSections";
 
 export function slugify(value: string) {
   return value

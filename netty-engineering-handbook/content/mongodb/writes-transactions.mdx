@@ -1,0 +1,98 @@
+---
+title: Writes and Transactions
+description: MongoDB write correctness depends on atomicity boundaries, write concern, and transaction scope.
+---
+
+<StoryBlock title="Correctness Has A Boundary">
+MongoDB gives single-document atomicity. Transactions exist for workflows that truly need multiple documents to commit together.
+</StoryBlock>
+
+## Intuition
+
+A write changes data. Write concern controls acknowledgement. A transaction groups multiple operations so they commit or abort together.
+
+The cheapest correct design is usually better than the strongest possible guarantee everywhere.
+
+<Misconception
+  soundsLike="If MongoDB supports transactions, I should use them for every workflow."
+  actually="Use document design first. Use transactions when the business operation truly crosses documents and must commit together."
+  whyItMatters="Unnecessary transactions add complexity, latency, and failure cases."
+/>
+
+## Real-world problem
+
+Updating an order status inside one order document is naturally atomic. Moving money between two account documents is not naturally one-document work and may need a transaction or a different model.
+
+## Mental model
+
+Ask:
+
+- can this invariant live inside one document?
+- what acknowledgement do I need before telling the user success?
+- can retry create duplicate work?
+- what happens if commit fails or times out?
+
+## Visual explanation
+
+<TracePrompt>
+Trace the invariant. The data that must be correct together defines the write boundary.
+</TracePrompt>
+
+<FlowDiagram title="Write decision">
+Business invariant -> One document or many -> Write concern -> Retry policy -> Commit or compensate
+</FlowDiagram>
+
+## Runtime behavior
+
+MongoDB applies single-document writes atomically. For multi-document transactions, the driver starts a session, executes operations, and commits or aborts. Write concern and read concern affect visibility and durability expectations.
+
+<RuntimeTrace title="Transaction flow">
+Start session | The driver opens transactional context.
+Run operations | Reads and writes happen inside the transaction.
+Commit | MongoDB attempts to make the changes visible.
+Handle result | The app handles success, retryable errors, or abort.
+</RuntimeTrace>
+
+## Code example
+
+```javascript
+await session.withTransaction(async () => {
+  await accounts.updateOne(
+    { _id: "a", balance: { $gte: 50 } },
+    { $inc: { balance: -50 } },
+    { session }
+  )
+
+  await accounts.updateOne(
+    { _id: "b" },
+    { $inc: { balance: 50 } },
+    { session }
+  )
+})
+```
+
+This is multi-document correctness. Do not use this shape when one document can safely own the invariant.
+
+<RecallPrompt question="what is MongoDB's simplest atomicity boundary?">
+A single document. Design around that boundary when the business invariant naturally fits there.
+</RecallPrompt>
+
+## Production implications
+
+Write concern, retry policy, and idempotency matter. Log ambiguous write outcomes carefully and design operations so retries do not double-apply business effects.
+
+## Performance implications
+
+Transactions can add coordination and lock pressure. Keep them short, targeted, and tied to real invariants.
+
+## Common bugs
+
+- using transactions instead of better document modeling
+- ignoring write concern and assuming all acknowledged writes mean the same thing
+- retrying non-idempotent operations blindly
+- keeping transactions open while doing slow application work
+- mixing external side effects with database commits without an outbox or repair plan
+
+## Summary
+
+MongoDB correctness starts with document atomicity. Use write concern and transactions deliberately where the business boundary requires them.

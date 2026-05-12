@@ -1,0 +1,83 @@
+---
+title: Expiration and Eviction
+description: TTL and eviction decide how Redis removes data under time and memory pressure.
+---
+
+<StoryBlock title="Keys Leave For Two Different Reasons">
+A key can disappear because its TTL expired. It can also disappear because Redis needed memory and the eviction policy chose it.
+</StoryBlock>
+
+## Intuition
+
+Expiration is time-based. Eviction is memory-pressure-based. They often work together in cache systems but answer different questions.
+
+<Misconception
+  soundsLike="If every key has a TTL, memory is safe."
+  actually="TTL limits lifetime, but memory can still fill before keys expire. Eviction policy controls what happens then."
+  whyItMatters="Your app must know whether missing data means expired, evicted, or never cached."
+/>
+
+## Real-world problem
+
+A service caches user profiles for one hour. A traffic spike caches millions of profiles in ten minutes. Memory fills before TTL removes enough keys, so eviction begins.
+
+## Mental model
+
+TTL says: **how long may this value be trusted?**
+
+Eviction says: **if memory is full, which key can Redis remove first?**
+
+## Visual explanation
+
+<TracePrompt>
+Trace why the key disappeared. The fix differs for expiration and eviction.
+</TracePrompt>
+
+<FlowDiagram title="Key lifetime">
+SET key with TTL -> Time passes -> Memory pressure may happen -> Expire or evict -> App handles miss
+</FlowDiagram>
+
+## Runtime behavior
+
+Redis can expire keys after TTL and can evict keys when configured memory limits are reached. Eviction policy decides candidate keys, such as all keys or volatile keys, and the selection strategy.
+
+<RuntimeTrace title="Memory pressure">
+Command | New write needs memory.
+Check | Redis checks memory usage.
+Policy | Eviction policy chooses removable keys.
+Remove | Redis removes keys until there is space.
+Reply | Command completes or fails depending on policy.
+</RuntimeTrace>
+
+## Code example
+
+```bash
+SET session:42 "token-data" EX 1800
+TTL session:42
+```
+
+The key expires after 30 minutes. That does not replace a memory policy.
+
+<RecallPrompt question="what is the difference between expiration and eviction?">
+Expiration removes keys because time is over. Eviction removes keys because memory policy needs space.
+</RecallPrompt>
+
+## Production implications
+
+Choose `maxmemory` and eviction policy intentionally. Monitor memory usage, evicted keys, expired keys, and hit rate together.
+
+## Performance implications
+
+Eviction under pressure can make latency less predictable. Large keys and sudden cache fills make memory behavior harder to reason about.
+
+## Common bugs
+
+- assuming TTL alone controls memory
+- using no eviction policy for cache workloads
+- storing large values without size limits
+- using identical TTLs that expire hot keys together
+- treating all cache misses as normal
+
+## Summary
+
+TTL controls freshness. Eviction controls memory pressure. Redis cache design needs both.

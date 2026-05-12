@@ -7,9 +7,17 @@ export function ReadingProgress() {
 
   useEffect(() => {
     const update = () => {
-      const scrollTop = window.scrollY;
-      const height = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(height > 0 ? Math.min(100, Math.max(0, (scrollTop / height) * 100)) : 0);
+      const readingRegion = document.querySelector<HTMLElement>("[data-reading-region='true']");
+      if (!readingRegion) {
+        const pageHeight = document.documentElement.scrollHeight - window.innerHeight;
+        setProgress(pageHeight > 0 ? Math.min(100, Math.max(0, (window.scrollY / pageHeight) * 100)) : 0);
+        return;
+      }
+
+      const start = readingRegion.offsetTop;
+      const end = start + readingRegion.offsetHeight - window.innerHeight;
+      const distance = end - start;
+      setProgress(distance > 0 ? Math.min(100, Math.max(0, ((window.scrollY - start) / distance) * 100)) : 0);
     };
 
     update();

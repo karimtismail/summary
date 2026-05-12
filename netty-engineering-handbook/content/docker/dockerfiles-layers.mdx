@@ -1,0 +1,93 @@
+---
+title: Dockerfiles and Layers
+description: Dockerfile instructions build image layers, and layer order controls cache reuse.
+---
+
+<StoryBlock title="Every Instruction Leaves A Trace">
+A Dockerfile is not just a setup script. Each build instruction can become a layer that affects image size and cache behavior.
+</StoryBlock>
+
+## Intuition
+
+A Dockerfile describes how to build an image. Instructions such as `FROM`, `COPY`, `RUN`, `ENV`, `EXPOSE`, `ENTRYPOINT`, and `CMD` shape the final artifact.
+
+<Misconception
+  soundsLike="A Dockerfile runs every line from scratch every time."
+  actually="Docker can reuse cached layers when previous inputs have not changed."
+  whyItMatters="Bad instruction order makes builds slow and images noisy."
+/>
+
+## Real-world problem
+
+You copy the whole project before installing dependencies. Every source change invalidates the dependency cache, so builds are slow even when dependencies did not change.
+
+## Mental model
+
+Put stable expensive steps before frequently changing code:
+
+- base image
+- dependency metadata
+- dependency install
+- source copy
+- compile or package
+- runtime command
+
+## Visual explanation
+
+<TracePrompt>
+Trace invalidation. The first changed layer invalidates everything after it.
+</TracePrompt>
+
+<FlowDiagram title="Layer cache">
+FROM base -> Copy dependency files -> Install dependencies -> Copy source -> Build app
+</FlowDiagram>
+
+## Runtime behavior
+
+Docker checks whether each instruction can reuse cache. If an instruction changes, that layer and following layers need rebuilding.
+
+<RuntimeTrace title="Build cache decision">
+Read instruction | Docker checks the next Dockerfile step.
+Compare inputs | Files and command inputs are compared.
+Reuse | Cache is used when inputs match.
+Rebuild | Changed inputs create a new layer.
+Continue | Later layers depend on earlier layers.
+</RuntimeTrace>
+
+## Code example
+
+```dockerfile
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /app
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN ./mvnw dependency:go-offline
+COPY src src
+RUN ./mvnw package -DskipTests
+```
+
+Dependency files change less often than source files, so the dependency layer can be reused.
+
+<RecallPrompt question="why copy dependency metadata before source code?">
+So dependency installation can stay cached when only application source files change.
+</RecallPrompt>
+
+## Production implications
+
+Pin base images intentionally, keep Dockerfiles readable, and review what files enter the build context. `.dockerignore` matters.
+
+## Performance implications
+
+Good layer order reduces rebuild time. Smaller images reduce transfer time and attack surface, but correctness and debuggability still matter.
+
+## Common bugs
+
+- copying the whole repo before dependency install
+- forgetting `.dockerignore`
+- using `latest` without understanding update risk
+- leaving package-manager caches in final images
+- putting secrets in `RUN` instructions
+
+## Summary
+
+Dockerfiles are build plans. Layer order decides cache behavior, image hygiene, and how easy the artifact is to reason about.

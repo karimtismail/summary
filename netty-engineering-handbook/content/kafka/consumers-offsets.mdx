@@ -5,11 +5,19 @@ description: Consumers read partitions and use offsets to record progress, repla
 
 <StoryBlock title="A Consumer Is A Cursor">
 Kafka does not remove a record when a consumer sees it. The consumer advances its own cursor through the log.
+
+The cursor analogy has limits. The cursor is per consumer group and partition, retention can remove old records, and committing the cursor says nothing about whether your database write, API call, or email already succeeded.
 </StoryBlock>
 
 ## Intuition
 
 Offsets are Kafka's progress mechanism. A consumer reads records from a partition and commits the offset it has processed. Replay is possible because the log remains available until retention removes it.
+
+<Misconception
+  soundsLike="Committing an offset means the business work definitely finished."
+  actually="Committing an offset only records consumer progress. Your side effect may have failed, duplicated, or still be in flight."
+  whyItMatters="Offset timing decides whether a crash turns into loss, duplicate work, or a recoverable replay."
+/>
 
 ## Real-world problem
 
@@ -25,9 +33,20 @@ Offset commit timing defines failure behavior:
 
 ## Visual explanation
 
+<TracePrompt>
+Trace the cursor and the side effect separately. The dangerous moment is when one advances and the other has not become durable.
+</TracePrompt>
+
 <FlowDiagram title="Consumer loop">
 Poll batch -> Process records -> Commit offsets -> Poll again
 </FlowDiagram>
+
+<RuntimeTrace title="Crash outcomes by offset timing">
+Commit before side effect | Fast progress, but a crash can skip work permanently.
+Side effect before commit | Replay can repeat work, so handlers need idempotency.
+Batch partially processed | A commit for the whole batch can hide unfinished records.
+Rebalance during work | Another consumer may receive the partition while old work is still in flight.
+</RuntimeTrace>
 
 ## Runtime behavior
 
@@ -54,6 +73,10 @@ while (running) {
 ```
 
 This commits after processing the batch, which usually means duplicates are possible after a crash. Without `enable.auto.commit=false`, a background commit may record progress before your processing boundary is complete.
+
+<RecallPrompt question="why are duplicates often safer than loss?">
+Duplicates can be made harmless with idempotency keys, processed-event tables, or reconciliation. A lost event may never be seen again because the committed offset tells Kafka to resume after it.
+</RecallPrompt>
 
 ## Production implications
 

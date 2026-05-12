@@ -1,0 +1,95 @@
+---
+title: Frames and Lifecycle
+description: WebSocket communication uses frames for text, binary, ping, pong, and close.
+---
+
+<StoryBlock title="Messages Ride Inside Frames">
+After the upgrade, the protocol is not free-form strings. WebSocket messages move in frames, and control frames keep the connection healthy.
+</StoryBlock>
+
+## Intuition
+
+WebSocket supports text and binary messages, plus control frames such as ping, pong, and close. A connection can open, send messages, stay idle, receive heartbeats, close cleanly, or disappear without a clean close.
+
+<Misconception
+  soundsLike="If the socket is open, the other side is healthy."
+  actually="Long-lived connections need heartbeat, timeout, and close handling."
+  whyItMatters="Dead connections can hold server memory and make users look online when they are gone."
+/>
+
+## Real-world problem
+
+A mobile client loses network without sending a close frame. The server keeps the connection in its registry and continues sending messages to a dead session.
+
+## Mental model
+
+Track lifecycle:
+
+- open
+- active messages
+- idle
+- heartbeat
+- close handshake
+- abnormal disconnect
+
+## Visual explanation
+
+<TracePrompt>
+Trace the session state, not only data messages. Close and heartbeat are part of the protocol.
+</TracePrompt>
+
+<FlowDiagram title="Connection lifecycle">
+Open -> Text or binary frames -> Ping and pong -> Close frame or network drop -> Cleanup
+</FlowDiagram>
+
+## Runtime behavior
+
+Data frames carry application payloads. Ping and pong can detect liveness. Close frames begin a closing handshake. A network failure may skip the clean close path, so the server needs timeouts.
+
+<RuntimeTrace title="Healthy connection">
+Open | Handshake completes.
+Send | App messages move as frames.
+Heartbeat | Ping and pong prove liveness.
+Close | One side sends a close frame.
+Cleanup | Server removes session state.
+</RuntimeTrace>
+
+## Code example
+
+```javascript
+socket.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  if (message.type === "price") {
+    renderPrice(message);
+  }
+};
+
+socket.onerror = () => markRealtimeUnhealthy();
+socket.onclose = () => scheduleReconnect();
+```
+
+Client code needs failure behavior, not only happy-path messages.
+
+<RecallPrompt question="why do WebSocket systems need heartbeat?">
+Because a long-lived connection can become dead without a clean close frame.
+</RecallPrompt>
+
+## Production implications
+
+Define idle timeouts, heartbeat interval, reconnect behavior, and cleanup. Treat abnormal close as a normal production event.
+
+## Performance implications
+
+Heartbeat too often wastes bandwidth. Heartbeat too rarely delays cleanup. Tune by network conditions and user expectations.
+
+## Common bugs
+
+- no heartbeat or idle timeout
+- treating every close as an error
+- leaking session registry entries
+- sending huge JSON messages without size limits
+- reconnecting all clients immediately after an outage
+
+## Summary
+
+WebSocket is a connection lifecycle, not only a message API. Handle frames, heartbeat, close, and abnormal disconnects deliberately.

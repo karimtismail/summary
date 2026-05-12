@@ -1,0 +1,179 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, Circle, RotateCcw } from "lucide-react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
+
+export type StudyProgressStep = {
+  id: string;
+  href: string;
+  title: string;
+  phase: string;
+  reason: string;
+  checkpoint: string;
+  position: number;
+  optional?: boolean;
+};
+
+type ProgressState = Record<string, true>;
+const STORAGE_EVENT = "handbook:study-progress-updated";
+const EMPTY_PROGRESS: ProgressState = {};
+const progressCache = new Map<string, { raw: string | null; value: ProgressState }>();
+
+function readProgress(storageKey: string): ProgressState {
+  if (typeof window === "undefined") return EMPTY_PROGRESS;
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    const cached = progressCache.get(storageKey);
+    if (cached?.raw === raw) return cached.value;
+
+    const parsed = raw ? JSON.parse(raw) : {};
+    const value = parsed && typeof parsed === "object" ? (parsed as ProgressState) : {};
+    progressCache.set(storageKey, { raw, value });
+    return value;
+  } catch {
+    return EMPTY_PROGRESS;
+  }
+}
+
+function getServerProgressSnapshot() {
+  return EMPTY_PROGRESS;
+}
+
+function subscribeProgress(storageKey: string, callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== storageKey) return;
+    callback();
+  };
+  const handleLocalUpdate = () => callback();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(STORAGE_EVENT, handleLocalUpdate);
+  queueMicrotask(callback);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(STORAGE_EVENT, handleLocalUpdate);
+  };
+}
+
+function writeProgress(storageKey: string, next: ProgressState) {
+  const raw = JSON.stringify(next);
+  window.localStorage.setItem(storageKey, raw);
+  progressCache.set(storageKey, { raw, value: next });
+  window.dispatchEvent(new Event(STORAGE_EVENT));
+}
+
+function groupSteps(steps: StudyProgressStep[]) {
+  return steps.reduce<Record<string, StudyProgressStep[]>>((groups, step) => {
+    groups[step.phase] = groups[step.phase] ?? [];
+    groups[step.phase].push(step);
+    return groups;
+  }, {});
+}
+
+export function StudyProgress({ trackSlug, steps }: { trackSlug: string; steps: StudyProgressStep[] }) {
+  const storageKey = `handbook:study-progress:v1:${trackSlug}`;
+  const subscribe = useCallback((callback: () => void) => subscribeProgress(storageKey, callback), [storageKey]);
+  const getSnapshot = useCallback(() => readProgress(storageKey), [storageKey]);
+  const completed = useSyncExternalStore(subscribe, getSnapshot, getServerProgressSnapshot);
+  const groupedSteps = useMemo(() => groupSteps(steps), [steps]);
+  const completedCount = useMemo(() => steps.filter((step) => completed[step.id]).length, [completed, steps]);
+  const progress = steps.length ? Math.round((completedCount / steps.length) * 100) : 0;
+
+  function toggleStep(stepId: string) {
+    const next = { ...completed };
+    if (next[stepId]) {
+      delete next[stepId];
+    } else {
+      next[stepId] = true;
+    }
+    writeProgress(storageKey, next);
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-text">Your study progress</p>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              {completedCount} of {steps.length} lessons finished. Mark only what you can explain back.
+            </p>
+          </div>
+          {completedCount ? (
+            <button
+              type="button"
+              onClick={() => writeProgress(storageKey, {})}
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-border bg-panel px-3 py-2 text-sm font-semibold text-muted transition hover:border-danger/50 hover:text-text"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-panel" aria-hidden="true">
+          <div className="h-full rounded-full bg-accent-secondary transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      {Object.entries(groupedSteps).map(([phase, phaseSteps]) => (
+        <section key={phase} className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-accent" />
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted">{phase}</h3>
+          </div>
+          <ol className="m-0 list-none space-y-2 p-0">
+            {phaseSteps.map((step) => {
+              const done = Boolean(completed[step.id]);
+              return (
+                <li
+                  key={step.id}
+                  className={cn(
+                    "m-0 rounded-lg border bg-panel p-3 transition sm:p-4",
+                    done ? "border-accent-secondary/45" : "border-border"
+                  )}
+                >
+                  <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:items-start">
+                    <button
+                      type="button"
+                      onClick={() => toggleStep(step.id)}
+                      aria-pressed={done}
+                      aria-label={done ? `Mark ${step.title} as not finished` : `Mark ${step.title} as finished`}
+                      className={cn(
+                        "inline-flex h-9 w-9 items-center justify-center rounded-md border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                        done ? "border-accent-secondary/45 bg-accent-secondary text-bg" : "border-border bg-card text-muted hover:text-text"
+                      )}
+                    >
+                      {done ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+                    </button>
+                    <Link href={step.href} className="group min-w-0">
+                      <span className="mb-1 block font-mono text-xs text-accent">{String(step.position).padStart(2, "0")}</span>
+                      <span className="block text-base font-semibold text-text transition group-hover:text-accent">{step.title}</span>
+                      <span className="mt-1 block text-sm leading-6 text-muted">{step.reason}</span>
+                      <span className="mt-2 flex items-start gap-2 text-xs leading-5 text-muted/85">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-secondary" />
+                        {step.checkpoint}
+                      </span>
+                    </Link>
+                    <Link
+                      href={step.href}
+                      aria-label={`Open ${step.title}`}
+                      className="hidden rounded-md border border-border bg-card p-2 text-muted transition hover:border-accent/50 hover:text-accent sm:inline-flex"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
+    </div>
+  );
+}

@@ -1,0 +1,99 @@
+---
+title: Compose, Networks, and Volumes
+description: Docker Compose runs multi-service stacks with named services, networks, and persistent volumes.
+---
+
+<StoryBlock title="Real Apps Are Rarely One Container">
+Your app probably needs a database, cache, broker, or admin tool. Compose gives that local system one file and one command.
+</StoryBlock>
+
+## Intuition
+
+Docker Compose defines services, networks, volumes, ports, environment, and dependencies for a multi-container application. Services can reach each other by service name on the Compose network.
+
+<Misconception
+  soundsLike="If I can reach MongoDB on localhost, containers can too."
+  actually="Inside a container, `localhost` means the same container. Use the service name for another Compose service."
+  whyItMatters="Most first Compose failures are network-name confusion."
+/>
+
+## Real-world problem
+
+A Spring Boot container tries to reach MongoDB through `localhost`. It fails because MongoDB is in another container. The URI should use the Compose service name, such as `mongo`, instead of pretending the database is inside the app container.
+
+## Mental model
+
+Compose gives you:
+
+- service names for DNS
+- published ports for host access
+- volumes for persistent data
+- environment for runtime config
+- one project network by default
+
+## Visual explanation
+
+<TracePrompt>
+Trace who is talking: host to container, or container to container. The address changes.
+</TracePrompt>
+
+<FlowDiagram title="Compose app">
+Host browser -> Published app port -> App service -> Compose network -> Database service -> Volume
+</FlowDiagram>
+
+## Runtime behavior
+
+`docker compose up` creates needed networks and volumes, starts services, and attaches logs. Containers can communicate over the project network using service names.
+
+<RuntimeTrace title="Compose startup">
+Read file | Compose loads services and config.
+Create network | Services join a project network.
+Create volumes | Named volumes are prepared.
+Start services | Containers start with environment and ports.
+Connect | Services resolve each other by name.
+</RuntimeTrace>
+
+## Code example
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/shop
+  mongo:
+    image: mongo:8
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
+```
+
+The host uses `localhost:8080`. The app container uses `mongo:27017`.
+
+<RecallPrompt question="what does `localhost` mean inside a container?">
+It means the same container, not your host machine and not a sibling service.
+</RecallPrompt>
+
+## Production implications
+
+Compose is excellent for local development and simple deployments. For production platforms, also consider secrets, health checks, resource limits, rollout behavior, and orchestration.
+
+## Performance implications
+
+Volumes and bind mounts have different performance and portability tradeoffs. Local filesystem behavior can differ across operating systems.
+
+## Common bugs
+
+- using `localhost` for another service
+- forgetting named volumes for database state
+- confusing `ports` with internal service connectivity
+- assuming `depends_on` means the dependency is ready
+- deleting volumes accidentally during cleanup
+
+## Summary
+
+Compose teaches the shape of a system: services, names, networks, ports, and volumes. Keep host access and container-to-container access separate.

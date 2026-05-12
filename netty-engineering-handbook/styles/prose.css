@@ -1,6 +1,6 @@
 .docs-prose {
   color: var(--text);
-  max-width: 72ch;
+  max-width: 68ch;
 }
 
 .docs-prose h1 {
@@ -10,16 +10,20 @@
   font-weight: 720;
   letter-spacing: 0;
   line-height: 1.03;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .docs-prose h2 {
-  margin-top: 4.5rem;
-  margin-bottom: 1.1rem;
+  margin-top: 3.5rem;
+  margin-bottom: 0.95rem;
   color: var(--text);
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .docs-prose h3 {
@@ -30,13 +34,15 @@
   font-weight: 680;
   letter-spacing: 0;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .docs-prose p {
-  margin: 1.2rem 0;
+  margin: 1rem 0;
   color: color-mix(in srgb, var(--muted) 82%, var(--text));
   font-size: 1.075rem;
-  line-height: 1.88;
+  line-height: 1.72;
+  overflow-wrap: anywhere;
 }
 
 .docs-prose a {
@@ -60,7 +66,8 @@
   margin: 0.6rem 0;
   color: color-mix(in srgb, var(--muted) 84%, var(--text));
   font-size: 1.02rem;
-  line-height: 1.78;
+  line-height: 1.68;
+  overflow-wrap: anywhere;
 }
 
 .docs-prose strong {
@@ -76,6 +83,7 @@
   padding: 0.12rem 0.35rem;
   font-family: var(--font-mono);
   font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 
 .docs-prose blockquote {
