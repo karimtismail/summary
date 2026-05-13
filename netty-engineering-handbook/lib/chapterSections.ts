@@ -11,81 +11,81 @@ export const chapterSections = [
   {
     id: "intuition",
     label: "Intuition",
-    displayLabel: "Start simple",
-    navLabel: "Start",
-    prompt: "الفكرة ببساطة قبل أي أسماء أو APIs.",
+    displayLabel: "The story starts here",
+    navLabel: "Story",
+    prompt: "نبدأ من الحكاية قبل المصطلحات.",
     required: true
   },
   {
     id: "real-world-problem",
     label: "Real-world problem",
-    displayLabel: "Why do we need it?",
-    navLabel: "Why?",
-    prompt: "المشكلة اللي خلت الموضوع ده مهم.",
+    displayLabel: "Why it appeared",
+    navLabel: "Why",
+    prompt: "إيه المشكلة اللي خلت الناس تخترع الفكرة دي؟",
     required: true
   },
   {
     id: "mental-model",
     label: "Mental model",
-    displayLabel: "The main idea",
-    navLabel: "Idea",
-    prompt: "الموديل اللي تمسكه في دماغك وانت بتذاكر.",
+    displayLabel: "What it really means",
+    navLabel: "Meaning",
+    prompt: "المعنى اللي تمسكه في دماغك من غير زحمة.",
     required: true
   },
   {
     id: "visual-explanation",
     label: "Visual explanation",
-    displayLabel: "Picture it",
-    navLabel: "Picture",
-    prompt: "نشوفها كحركة أو رسمة صغيرة.",
+    displayLabel: "See it as a scene",
+    navLabel: "Scene",
+    prompt: "نشوفها كحركة بسيطة بدل كلام مجرد.",
     required: true
   },
   {
     id: "runtime-behavior",
     label: "Runtime behavior",
-    displayLabel: "What actually happens?",
-    navLabel: "Happens",
-    prompt: "إيه اللي بيحصل جوه السيستم خطوة بخطوة.",
+    displayLabel: "How it works inside",
+    navLabel: "Inside",
+    prompt: "الخطوات اللي بتحصل جوه السيستم واحدة واحدة.",
     required: true
   },
   {
     id: "code-example",
     label: "Code example",
-    displayLabel: "Try it in code",
+    displayLabel: "Complete working code",
     navLabel: "Code",
-    prompt: "الكود هنا عشان يثبت الفكرة، مش عشان تحفظ syntax.",
+    prompt: "كود كامل تقدر تشغله وتربطه بالحكاية.",
     required: true
   },
   {
     id: "production-implications",
     label: "Production implications",
-    displayLabel: "In real projects",
-    navLabel: "Real app",
-    prompt: "إيه اللي هيفرق لما الموضوع يدخل production.",
+    displayLabel: "Where it helps",
+    navLabel: "Helps",
+    prompt: "الفكرة دي بتفيدك فين في مشروع حقيقي؟",
     required: true
   },
   {
     id: "performance-implications",
     label: "Performance implications",
-    displayLabel: "Speed notes",
-    navLabel: "Speed",
-    prompt: "ملحوظات الأداء من غير رغي.",
+    displayLabel: "Where it hurts",
+    navLabel: "Limits",
+    prompt: "إيه تمنها؟ وإمتى تبقى مزعجة؟",
     required: true
   },
   {
     id: "common-bugs",
     label: "Common bugs",
-    displayLabel: "Mistakes to avoid",
-    navLabel: "Mistakes",
-    prompt: "الحاجات اللي غالبا بتوقع الناس.",
+    displayLabel: "What came next",
+    navLabel: "Next",
+    prompt: "إيه اللي جه بعد كده يحل ألمها؟",
     required: true
   },
   {
     id: "summary",
     label: "Summary",
-    displayLabel: "Remember this",
+    displayLabel: "Hold this story",
     navLabel: "Remember",
-    prompt: "الخلاصة اللي تاخدها معاك.",
+    prompt: "الخلاصة اللي تفضل معاك وانت بتكمل.",
     required: true
   }
 ] as const satisfies readonly ChapterSection[];

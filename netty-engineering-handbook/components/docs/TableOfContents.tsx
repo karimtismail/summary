@@ -9,14 +9,17 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
   const [activeId, setActiveId] = useState(headings[0]?.id);
   const h2Headings = headings.filter((heading) => heading.level === 2);
   const journey = [
-    { label: "Start", ids: ["intuition", "real-world-problem"] },
-    { label: "Understand", ids: ["mental-model", "visual-explanation", "runtime-behavior"] },
-    { label: "Try", ids: ["code-example"] },
-    { label: "Use safely", ids: ["production-implications", "performance-implications", "common-bugs"] },
+    { label: "Story", ids: ["intuition", "real-world-problem"] },
+    { label: "Mechanics", ids: ["mental-model", "visual-explanation", "runtime-behavior"] },
+    { label: "Code", ids: ["code-example"] },
+    { label: "Tradeoffs", ids: ["production-implications", "performance-implications", "common-bugs"] },
     { label: "Remember", ids: ["summary"] }
   ]
     .map((step) => {
-      const available = h2Headings.filter((heading) => step.ids.includes(heading.id));
+      const available = h2Headings.filter((heading) => {
+        const section = getChapterSectionByHeading(heading.text);
+        return section ? step.ids.includes(section.id) : step.ids.includes(heading.id);
+      });
       const first = available[0];
       return first ? { ...step, href: `#${first.id}`, active: available.some((heading) => heading.id === activeId) } : null;
     })
@@ -45,9 +48,9 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
   return (
     <nav aria-label="Lesson journey" className="space-y-4">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Lesson journey</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Story path</p>
         <p dir="rtl" lang="ar" className="mt-1 text-xs leading-5 text-muted/80">
-          امشي واحدة واحدة.
+          امشيها كحكاية واحدة، مش كقائمة حفظ.
         </p>
       </div>
       <div className="space-y-1.5">
@@ -66,7 +69,7 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
         ))}
       </div>
       <details className="rounded-lg border border-border bg-panel/55 p-3">
-        <summary className="cursor-pointer list-none text-xs font-medium text-muted transition hover:text-text">All small sections</summary>
+        <summary className="cursor-pointer list-none text-xs font-medium text-muted transition hover:text-text">Open detailed steps</summary>
         <div className="mt-3 space-y-1">
           {h2Headings.map((heading) => {
             const section = getChapterSectionByHeading(heading.text);

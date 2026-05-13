@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { chapterSections, getChapterDisplayLabel, getChapterSectionByHeading } from "@/lib/chapterSections";
+import { getChapterDisplayLabel, getChapterSectionByHeading } from "@/lib/chapterSections";
 import { slugify } from "@/lib/handbook";
 
 function toText(value: ReactNode): string {
@@ -12,11 +12,9 @@ export function H2({ children }: { children: ReactNode }) {
   const text = toText(children);
   const id = slugify(text);
   const section = getChapterSectionByHeading(text);
-  const sectionNumber = section ? String(chapterSections.findIndex((item) => item.id === section.id) + 1).padStart(2, "0") : undefined;
 
   return (
     <h2 id={id} className="scroll-mt-28">
-      {sectionNumber ? <span className="mb-2 block font-mono text-sm font-semibold text-accent">{sectionNumber}</span> : null}
       {getChapterDisplayLabel(text)}
       {section?.prompt ? (
         <span dir="rtl" lang="ar" className="mt-2 block max-w-2xl text-sm font-normal leading-6 text-muted">

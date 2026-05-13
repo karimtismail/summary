@@ -168,7 +168,7 @@ async function main() {
       });
 
       try {
-        const response = await page.goto(`${baseUrl}${route}`, { waitUntil: "networkidle", timeout: 45000 });
+        const response = await page.goto(`${baseUrl}${route}`, { waitUntil: "domcontentloaded", timeout: 45000 });
         await page.waitForSelector("#main-content", { timeout: 10000 });
         await page.waitForTimeout(200);
 

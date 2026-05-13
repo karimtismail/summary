@@ -4,12 +4,12 @@ description: One sentence explaining the production-relevant learning outcome.
 ---
 
 <StoryBlock title="Short Scenario Title">
-Start with a concrete situation, not a definition. Name the misleading intuition, then state where the analogy or scenario stops.
+Start with the historical pressure or day-to-day engineering pain. The reader should feel why this thing had to exist before seeing the API name.
 </StoryBlock>
 
 ## Intuition
 
-Explain the first mental handle. Keep it concrete and avoid naming APIs too early.
+Tell the story in plain language. Explain what engineers were doing before this concept existed, why that felt okay at first, and where it started to break.
 
 <Misconception
   soundsLike="The tempting but wrong model."
@@ -19,16 +19,16 @@ Explain the first mental handle. Keep it concrete and avoid naming APIs too earl
 
 ## Real-world problem
 
-Describe the incident, failure pressure, or design problem that makes this chapter necessary.
+Describe the concrete problem: load, blocking, ownership, failure, observability, consistency, latency, or developer confusion. Show the pain before the solution.
 
 ## Mental model
 
-Give the smallest useful model. The reader should be able to repeat this in a code review.
+Now define the concept. Keep it repeatable in one or two sentences, then explain where the model stops being true.
 
 ## Visual explanation
 
 <TracePrompt>
-Tell the reader what to trace: bytes, ownership, offsets, waits, queues, retries, or failure points.
+Tell the reader what to trace: bytes, ownership, offsets, waits, queues, retries, readiness, or failure points.
 </TracePrompt>
 
 <FlowDiagram title="Visual title">
@@ -37,7 +37,7 @@ Step one -> Step two -> Step three
 
 ## Runtime behavior
 
-Explain what the system actually does while the concept is active.
+Explain what actually happens at runtime. Prefer a small timeline over abstract description.
 
 <RuntimeTrace title="Runtime trace title">
 Step label | Concrete detail.
@@ -47,10 +47,10 @@ Another step | Concrete detail.
 ## Code example
 
 ```java
-// Replace with a focused example that reinforces the model.
+// Prefer a complete class with imports and a main method when the concept is executable.
 ```
 
-Explain what the code proves. Name the boundary, failure path, or ownership rule.
+Explain how to run the code, what output to expect, and which lines map back to the story.
 
 <RecallPrompt question="one concrete recall question?">
 Provide the answer or expected reasoning here so the block can be used for self-checking.
@@ -58,18 +58,20 @@ Provide the answer or expected reasoning here so the block can be used for self-
 
 ## Production implications
 
-Name the metrics, logs, traces, limits, or operator decisions that prove the concept is working or failing.
+Explain where this concept helps in real projects and what operational signals prove it is working.
 
 ## Performance implications
 
-Name the scarce resource and the tradeoff. Avoid generic tuning advice.
+Name the price you pay: memory, threads, queueing, syscall cost, coordination, serialization, or mental overhead. Avoid generic tuning advice.
 
 ## Common bugs
 
-- Specific bug one
-- Specific bug two
-- Specific bug three
+Explain what later abstractions, libraries, or patterns were created to make this concept safer. Then list the traps that remain.
+
+- Specific trap one
+- Specific trap two
+- Specific trap three
 
 ## Summary
 
-One short paragraph that keeps the model, consequence, and rule.
+One short paragraph that preserves the story, the operating rule, and the next concept the reader is ready for.

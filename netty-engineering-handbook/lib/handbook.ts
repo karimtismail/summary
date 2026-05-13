@@ -1,4 +1,4 @@
-import { chapterStructure } from "@/lib/chapterSections";
+import { chapterStructure, getChapterSectionByHeading } from "@/lib/chapterSections";
 
 export function slugify(value: string) {
   return value
@@ -62,11 +62,18 @@ function extractSections(source: string) {
 
   matches.forEach((match, index) => {
     const title = match[1].trim();
+    const section = getChapterSectionByHeading(title);
     const start = match.index ?? 0;
     const contentStart = start + match[0].length;
     const next = matches[index + 1];
     const contentEnd = next?.index ?? source.length;
-    sections.set(title, source.slice(contentStart, contentEnd).trim());
+    const body = source.slice(contentStart, contentEnd).trim();
+    sections.set(title, body);
+    if (section) {
+      sections.set(section.id, body);
+      sections.set(section.label, body);
+      sections.set(section.displayLabel, body);
+    }
   });
 
   return sections;
@@ -95,16 +102,16 @@ function bulletItems(value: string) {
 
 export function createCheatSheet(source: string, fallbackDescription: string): ChapterCheatSheet {
   const sections = extractSections(source);
-  const commonBugs = bulletItems(sections.get("Common bugs") ?? "");
+  const commonBugs = bulletItems(sections.get("common-bugs") ?? sections.get("Common bugs") ?? "");
 
   return {
-    problem: firstSentences(sections.get("Real-world problem") ?? "", fallbackDescription),
-    mentalModel: firstSentences(sections.get("Mental model") ?? "", "Identify the runtime boundary, then choose the API that matches it."),
-    runtime: firstSentences(sections.get("Runtime behavior") ?? "", "Observe how the system behaves while bytes, records, or events move through it."),
-    production: firstSentences(sections.get("Production implications") ?? "", "Make the operational boundary visible with metrics, limits, and failure policy."),
-    performance: firstSentences(sections.get("Performance implications") ?? "", "Measure queueing, allocation, batching, and latency before tuning."),
+    problem: firstSentences(sections.get("real-world-problem") ?? sections.get("Real-world problem") ?? "", fallbackDescription),
+    mentalModel: firstSentences(sections.get("mental-model") ?? sections.get("Mental model") ?? "", "Identify the runtime boundary, then choose the API that matches it."),
+    runtime: firstSentences(sections.get("runtime-behavior") ?? sections.get("Runtime behavior") ?? "", "Observe how the system behaves while bytes, records, or events move through it."),
+    production: firstSentences(sections.get("production-implications") ?? sections.get("Production implications") ?? "", "Make the operational boundary visible with metrics, limits, and failure policy."),
+    performance: firstSentences(sections.get("performance-implications") ?? sections.get("Performance implications") ?? "", "Measure queueing, allocation, batching, and latency before tuning."),
     commonBugs: commonBugs.length ? commonBugs : ["Explaining the API before the failure mode is understood.", "Missing ownership, ordering, or backpressure boundaries."],
-    summary: firstSentences(sections.get("Summary") ?? "", fallbackDescription, 3)
+    summary: firstSentences(sections.get("summary") ?? sections.get("Summary") ?? "", fallbackDescription, 3)
   };
 }
 
