@@ -5,6 +5,7 @@ import { ArrowRight, Compass } from "lucide-react";
 import { PracticeLabs } from "@/components/docs/PracticeLabs";
 import { PrerequisitePanel } from "@/components/docs/PrerequisitePanel";
 import { Sidebar } from "@/components/docs/Sidebar";
+import { StudyMethod } from "@/components/docs/StudyMethod";
 import { StudyProgress, type StudyProgressStep } from "@/components/docs/StudyProgress";
 import { findChapter } from "@/lib/navigation";
 import { getPracticeLabs } from "@/lib/practiceLabs";
@@ -86,7 +87,7 @@ export default async function StudyTrackPage({ params }: PageProps) {
                   href="/handbook"
                   className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-text"
                 >
-                  Reference map
+                  Topic library
                 </Link>
               </div>
             </div>
@@ -103,6 +104,8 @@ export default async function StudyTrackPage({ params }: PageProps) {
           </div>
         </section>
 
+        <StudyMethod title={track.shortTitle} />
+
         <PrerequisitePanel
           items={track.prerequisites}
           title={`Before ${track.shortTitle}`}
@@ -115,9 +118,9 @@ export default async function StudyTrackPage({ params }: PageProps) {
               <Compass className="h-4 w-4" />
             </span>
             <div>
-              <h2 className="text-xl font-semibold tracking-[0] text-text">Study order</h2>
+              <h2 className="text-xl font-semibold tracking-[0] text-text">Lessons in order</h2>
               <p className="mt-1 text-sm leading-6 text-muted">
-                Follow this order when you are studying. Use the sidebar only when you already know what you want to revisit.
+                Follow these from top to bottom. Use the topic library later when you already know what you want to revisit.
               </p>
             </div>
           </div>
@@ -131,6 +134,9 @@ export default async function StudyTrackPage({ params }: PageProps) {
           <h2 className="text-lg font-semibold text-text">When you feel lost</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
             Stop at the first unclear word. Read its prerequisite card, open the linked chapter if needed, then return to the same step. The goal is not to finish pages fast; the goal is to keep the mental model connected.
+          </p>
+          <p dir="rtl" lang="ar" className="mt-2 text-sm leading-7 text-muted">
+            لو كلمة وقفتك، متكملش بالعافية. افتح شرحها، ارجع لنفس المكان، وكمل كأنك بتبني خريطة واحدة مش بتجمع صفحات.
           </p>
         </section>
       </article>

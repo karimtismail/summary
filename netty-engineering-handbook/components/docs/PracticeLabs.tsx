@@ -1,5 +1,45 @@
-import { CheckCircle2, FlaskConical, Hammer, Lightbulb } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, FlaskConical, Hammer, Lightbulb, MessageSquareText, type LucideIcon } from "lucide-react";
 import type { PracticeLab } from "@/lib/practiceLabs";
+
+type LabChecklistProps = {
+  title: string;
+  items: string[];
+  icon: LucideIcon;
+  tone: "accent" | "secondary" | "warning";
+};
+
+const toneStyles = {
+  accent: "text-accent",
+  secondary: "text-accent-secondary",
+  warning: "text-warning"
+} satisfies Record<LabChecklistProps["tone"], string>;
+
+const loopSteps = [
+  { label: "Build", detail: "Make the smallest working version." },
+  { label: "Break safely", detail: "Force the failure while it is safe." },
+  { label: "Observe", detail: "Collect proof from logs, metrics, or behavior." },
+  { label: "Explain", detail: "Say the reason in your own words." },
+  { label: "Proof", detail: "Keep one clear check that shows the idea is yours." }
+];
+
+function LabChecklist({ title, items, icon: Icon, tone }: LabChecklistProps) {
+  return (
+    <div className="min-w-0 rounded-md border border-border bg-panel p-3 [overflow-wrap:anywhere]">
+      <div className="mb-3 flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${toneStyles[tone]}`} />
+        <p className="text-sm font-semibold text-text">{title}</p>
+      </div>
+      <ul className="m-0 space-y-2 p-0">
+        {items.map((item) => (
+          <li key={item} className="m-0 flex items-start gap-2 text-sm leading-6 text-muted">
+            <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-accent-secondary" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function PracticeLabs({ labs }: { labs: PracticeLab[] }) {
   if (!labs.length) return null;
@@ -15,37 +55,48 @@ export function PracticeLabs({ labs }: { labs: PracticeLab[] }) {
             Practice labs
           </h2>
           <p className="mt-1 text-sm leading-6 text-muted">
-            Do these after the lessons. They turn reading into proof that the idea is yours.
+            Do these after the lessons. Each lab follows the same calm loop, so practice feels predictable.
           </p>
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        {loopSteps.map((step, index) => (
+          <div key={step.label} className="rounded-md border border-border bg-card px-3 py-2.5">
+            <span className="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</span>
+            <p className="mt-1 text-sm font-semibold text-text">{step.label}</p>
+            <p className="mt-1 text-xs leading-5 text-muted">{step.detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
         {labs.map((lab) => (
-          <details key={lab.title} className="rounded-lg border border-border bg-card p-4">
+          <details key={lab.title} className="rounded-lg border border-border bg-card p-4 [overflow-wrap:anywhere]">
             <summary className="cursor-pointer list-none">
               <span className="block text-base font-semibold text-text">{lab.title}</span>
               <span className="mt-1 block text-sm leading-6 text-muted">{lab.goal}</span>
             </summary>
             <div className="mt-4 border-t border-border pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Hammer className="h-4 w-4 text-accent" />
-                <p className="text-sm font-semibold text-text">Build</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <LabChecklist title="Build" items={lab.build} icon={Hammer} tone="accent" />
+                <LabChecklist title="Break safely" items={lab.breakIt} icon={AlertTriangle} tone="warning" />
+                <LabChecklist title="Observe" items={lab.observe} icon={Activity} tone="secondary" />
+                <div className="min-w-0 rounded-md border border-border bg-panel p-3 [overflow-wrap:anywhere]">
+                  <div className="mb-3 flex items-center gap-2">
+                    <MessageSquareText className="h-4 w-4 text-accent" />
+                    <p className="text-sm font-semibold text-text">Explain</p>
+                  </div>
+                  <p className="text-sm leading-6 text-muted">{lab.explain}</p>
+                </div>
               </div>
-              <ul className="m-0 space-y-2 p-0">
-                {lab.build.map((item) => (
-                  <li key={item} className="m-0 flex items-start gap-2 text-sm leading-6 text-muted">
-                    <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-accent-secondary" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
               <div className="mt-4 rounded-md border border-accent-secondary/30 bg-panel p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Lightbulb className="h-4 w-4 text-accent-secondary" />
-                  <p className="text-sm font-semibold text-text">Check</p>
+                  <p className="text-sm font-semibold text-text">Proof</p>
                 </div>
                 <p className="text-sm leading-6 text-muted">{lab.check}</p>
+                {lab.after ? <p className="mt-2 text-xs leading-5 text-muted/85">{lab.after}</p> : null}
               </div>
             </div>
           </details>
