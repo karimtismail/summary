@@ -26,6 +26,8 @@ Design each boundary:
 - observability signals
 - compatibility plan
 
+The architecture is healthy when every boundary has a boring answer to four questions: **what can enter, how much can wait, how long may it take, and what happens when it fails?**
+
 ## Visual explanation
 
 <ArchitectureDiagram title="Boundary-oriented service">
@@ -39,20 +41,57 @@ gateway: frame -> decode -> route -> apply pressure
   +--> service C
 </ArchitectureDiagram>
 
+<FlowComparison
+  title="Box diagram vs runtime architecture"
+  leftTitle="Box diagram"
+  leftSubtitle="Useful for orientation, incomplete for operation"
+  leftFlow="Client -> Gateway -> Service -> Database"
+  rightTitle="Runtime architecture"
+  rightSubtitle="Useful during incidents"
+  rightFlow="Client -> accept queue -> decoder -> bounded work queue -> downstream budget -> write buffer -> close policy"
+  insight="A senior architecture review turns boxes into queues, budgets, ownership, and failure policies."
+/>
+
 ## Runtime behavior
 
 Every async boundary introduces a queue. Every queue needs a maximum, a metric, and a policy. If the policy is not explicit, the default is usually memory growth.
 
+<RuntimeTrace title="Boundary review checklist">
+Ingress | Max connections, auth point, request size, idle timeout, overload response.
+Protocol | Versioning, framing, compatibility, malformed input policy.
+Work placement | EventLoop work, blocking work, CPU work, and executor limits.
+Downstream | Timeout, retry budget, circuit behavior, and fallback policy.
+Egress | Write watermarks, slow client policy, compression, and close semantics.
+Operations | Metrics, logs, traces, dashboards, alerts, and runbooks.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-ChannelOption.WRITE_BUFFER_WATER_MARK;
-ReadTimeoutHandler readTimeout;
-LengthFieldBasedFrameDecoder maxFrameDecoder;
-EventExecutorGroup blockingWorkPool;
+public record BoundaryPolicy(
+    int maxFrameBytes,
+    int maxQueuedMessages,
+    int writeHighWatermarkBytes,
+    long downstreamTimeoutMillis,
+    boolean closeSlowClients
+) {
+    public static BoundaryPolicy productionDefault() {
+        return new BoundaryPolicy(
+            1 << 20,
+            1_000,
+            256 * 1024,
+            500,
+            true
+        );
+    }
+}
 ```
 
-These are not just APIs. They are architectural decisions about pressure, time, size, and work placement.
+This record is not a replacement for Netty config. It is a design artifact: it forces the team to name size, queue, pressure, timeout, and slow-client behavior before the code hides those choices.
+
+<Warning title="Architecture without limits becomes memory policy">
+If a design says "queue it", "retry it", or "broadcast it" without a cap, then the real policy is to spend memory until the process or downstream dependency pushes back.
+</Warning>
 
 ## Production implications
 

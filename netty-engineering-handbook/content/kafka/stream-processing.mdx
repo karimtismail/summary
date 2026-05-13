@@ -26,6 +26,8 @@ Think in four parts:
 
 State is recoverable because Kafka keeps the input and changelog history.
 
+The operational question is: **how long would it take to rebuild this state after a node dies?** If that answer is surprising, the topology is not production-ready yet.
+
 ## Visual explanation
 
 <ArchitectureDiagram title="Stateful processing">
@@ -38,22 +40,70 @@ orders topic -> group by merchant -> windowed aggregate -> merchant totals topic
                             changelog topic
 </ArchitectureDiagram>
 
+<FlowComparison
+  title="Stateless vs stateful stream work"
+  leftTitle="Stateless map/filter"
+  leftSubtitle="Fast recovery, little local state"
+  leftFlow="Read record -> Transform -> Produce output"
+  rightTitle="Stateful window/join"
+  rightSubtitle="Local state plus changelog recovery"
+  rightFlow="Read record -> Load state -> Update state -> Write changelog -> Produce output"
+  insight="State is the feature and the cost. It gives real-time answers, but it creates restore time, disk behavior, and migration risk."
+/>
+
 ## Runtime behavior
 
 Kafka Streams assigns input partitions to tasks. Tasks process records, update local state, write changelogs, and produce output. On failure, another instance restores state from changelog topics.
 
+<RuntimeTrace title="Stateful task lifecycle">
+Assign | Kafka Streams assigns input partitions to stream tasks.
+Process | Each task reads records in partition order.
+Update state | Local stores keep aggregates, join tables, or windows.
+Changelog | Store updates are written to compacted changelog topics.
+Commit | Offsets and state progress are checkpointed.
+Restore | After rebalance or crash, another task rebuilds state before processing resumes.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-builder.stream("orders", Consumed.with(Serdes.String(), orderSerde))
-    .groupBy((key, order) -> order.merchantId())
-    .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1)))
-    .count()
-    .toStream()
-    .to("merchant.order-counts");
+import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.streams.StreamsBuilder;
+import org.apache.kafka.streams.kstream.Consumed;
+import org.apache.kafka.streams.kstream.Materialized;
+import org.apache.kafka.streams.kstream.Produced;
+import org.apache.kafka.streams.kstream.TimeWindows;
+import org.apache.kafka.streams.kstream.Windowed;
+import java.time.Duration;
+
+public final class MerchantOrderTopology {
+    public static void build(
+        StreamsBuilder builder,
+        OrderSerde orderSerde,
+        org.apache.kafka.common.serialization.Serde<Windowed<String>> windowedMerchantSerde
+    ) {
+        builder.stream("orders", Consumed.with(Serdes.String(), orderSerde))
+            .groupBy((key, order) -> order.merchantId())
+            .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1)))
+            .count(Materialized.as("merchant-order-counts"))
+            .toStream()
+            .to("merchant.order-counts", Produced.with(windowedMerchantSerde, Serdes.Long()));
+    }
+}
+
+interface OrderSerde extends org.apache.kafka.common.serialization.Serde<Order> {}
+record Order(String merchantId) {}
 ```
 
 This is a continuous computation, not a batch query.
+
+<Warning title="Window choice is business semantics">
+Tumbling, hopping, and session windows answer different product questions. Also decide how late events are handled; processing time and event time are not the same thing.
+</Warning>
+
+<Highlight title="Recovery is part of performance">
+State store size, changelog compaction, local disk speed, standby replicas, and checkpoint freshness decide how long a rebalance or restart hurts the application.
+</Highlight>
 
 ## Production implications
 

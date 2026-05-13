@@ -26,32 +26,86 @@ Separate memory into:
 
 Each pool has different failure modes.
 
+The useful question is not "heap or off-heap?" It is **who owns this memory, what queue can hold it, and what signal tells us it is not returning?**
+
 ## Visual explanation
 
 <FlowDiagram title="Memory pressure path">
 Per-message allocation -> GC pressure -> Pause or CPU overhead -> EventLoop delay -> Tail latency
 </FlowDiagram>
 
+<ArchitectureDiagram title="Networking memory map">
+socket receive buffer
+  -> direct ByteBuf
+  -> decoder view or copy
+  -> domain object
+  -> outbound queue
+  -> direct ByteBuf
+  -> socket send buffer
+
+parallel signals:
+  heap usage
+  direct memory usage
+  allocator arenas
+  per-channel pending outbound bytes
+  GC pause and allocation rate
+</ArchitectureDiagram>
+
 ## Runtime behavior
 
 Netty allocators can pool direct buffers. `ByteBuf` reference counts control when memory returns to the pool. If references leak, direct memory pressure can grow while heap looks healthy.
 
+<RuntimeTrace title="A buffer lifetime">
+Allocate | A pooled direct buffer is borrowed for inbound or outbound IO.
+Slice | Handlers may create views over the same underlying memory.
+Retain | A handler takes a new reference only when it needs a longer lifetime.
+Transfer | A write or `fireChannelRead` can move ownership to the next stage.
+Release | The final owner releases the reference.
+Recycle | The allocator can reuse memory after the reference count reaches zero.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-ByteBuf buffer = ctx.alloc().directBuffer(estimateSize);
-try {
-    encode(response, buffer);
-    ctx.write(buffer);
-    buffer = null;
-} finally {
-    if (buffer != null) {
-        buffer.release();
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+
+public final class SafeOutboundEncoder {
+    public void write(ChannelHandlerContext ctx, Response response) {
+        ByteBuf buffer = ctx.alloc().directBuffer(estimateSize(response));
+        try {
+            encode(response, buffer);
+            ctx.write(buffer);
+            buffer = null;
+        } finally {
+            if (buffer != null) {
+                buffer.release();
+            }
+        }
+    }
+
+    private int estimateSize(Response response) {
+        return 64 + response.payload().length();
+    }
+
+    private void encode(Response response, ByteBuf out) {
+        out.writeLong(response.requestId());
+        out.writeCharSequence(response.payload(), java.nio.charset.StandardCharsets.UTF_8);
     }
 }
+
+record Response(long requestId, String payload) {}
 ```
 
 The handoff to `ctx.write` transfers ownership. The failure path still releases.
+
+<Warning title="Heap graphs can lie by omission">
+A process can have healthy Java heap and still fail from direct memory pressure, allocator fragmentation, or unbounded outbound buffers. Watch direct memory and channel pending bytes beside GC.
+</Warning>
+
+<Highlight title="Leak detection is a diagnosis tool">
+Netty leak detector output means a reference-counted object escaped its release path. Use higher leak detection levels in lower environments or targeted incident reproduction, then fix ownership instead of hiding the warning.
+</Highlight>
 
 ## Production implications
 

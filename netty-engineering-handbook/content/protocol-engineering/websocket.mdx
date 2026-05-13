@@ -24,30 +24,85 @@ WebSocket has two phases:
 
 After upgrade, connection lifecycle and backpressure become long-lived concerns.
 
+Think of a WebSocket server as a small connection registry plus a protocol state machine. The hard part is not receiving one text frame; it is deciding who owns each connection, what messages are allowed, and what happens when the client stops reading.
+
 ## Visual explanation
 
 <FlowDiagram title="WebSocket lifecycle">
 HTTP request -> Upgrade handshake -> WebSocket frames -> Ping, pong, and close
 </FlowDiagram>
 
+<ArchitectureDiagram title="WebSocket production shape">
+client
+  -> HTTP upgrade
+  -> WebSocket protocol handler
+  -> auth/session binding
+  -> connection registry
+  -> message router
+  -> per-channel write policy
+  -> close and cleanup
+</ArchitectureDiagram>
+
 ## Runtime behavior
 
 Netty handles the upgrade with WebSocket protocol handlers. After that, your handlers receive frame types such as text, binary, ping, pong, and close.
 
+<RuntimeTrace title="Connection lifecycle">
+Handshake | HTTP headers, path, origin, auth, and subprotocols are validated.
+Register | The accepted channel is attached to a user, tenant, room, or stream.
+Exchange | Text or binary frames move through application handlers.
+Heartbeat | Ping, pong, and idle detection separate dead peers from quiet peers.
+Pressure | Slow clients build outbound bytes and need pause, drop, or close policy.
+Close | Close frames and channel inactive events must release registry ownership.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
+
+public final class WebSocketPipeline {
+    public static void configure(ChannelPipeline pipeline) {
 pipeline.addLast(new HttpServerCodec());
 pipeline.addLast(new HttpObjectAggregator(8192));
 pipeline.addLast(new WebSocketServerProtocolHandler("/events"));
-pipeline.addLast(new SimpleChannelInboundHandler<TextWebSocketFrame>() {
-    protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
-        ctx.writeAndFlush(new TextWebSocketFrame("ack:" + frame.text()));
+        pipeline.addLast(new EventFrameHandler());
     }
-});
+}
+
+final class EventFrameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, WebSocketFrame frame) {
+        if (frame instanceof TextWebSocketFrame text) {
+            if (!ctx.channel().isWritable()) {
+                ctx.close();
+                return;
+            }
+            ctx.writeAndFlush(new TextWebSocketFrame("ack:" + text.text()));
+            return;
+        }
+
+        ctx.fireChannelRead(frame.retain());
+    }
+}
 ```
 
 The HTTP codec is still needed for the handshake.
+
+<Warning title="Retain only because this handler forwards">
+`SimpleChannelInboundHandler` releases the frame it consumes after `channelRead0`. The example calls `retain()` before forwarding non-text frames so the next handler owns a valid reference. If this handler handled close, ping, and binary frames itself, it should not retain and forward them blindly.
+</Warning>
+
+<Highlight title="Compression and intermediaries">
+Production WebSocket stacks often add compression, proxy timeouts, load balancer idle settings, and origin checks. Test the deployed path, not only direct localhost connections.
+</Highlight>
 
 ## Production implications
 

@@ -21,11 +21,24 @@ A service handles many idle connections and a smaller active subset. Waking up t
 
 Register interest once, wait for events, process ready descriptors, update interest when needed.
 
+The kernel does not understand your protocol. It only reports readiness. Your EventLoop still has to drain reads, handle partial writes, apply backpressure, and keep callbacks short.
+
 ## Visual explanation
 
 <FlowDiagram title="epoll model">
 Register fd -> Kernel readiness set -> epoll_wait -> EventLoop processes ready fd
 </FlowDiagram>
+
+<FlowComparison
+  title="Selector path vs native epoll path"
+  leftTitle="JDK NIO path"
+  leftSubtitle="Portable default"
+  leftFlow="JDK selector -> NIO channel -> Netty pipeline -> handler"
+  rightTitle="Linux native path"
+  rightSubtitle="Linux-specific transport"
+  rightFlow="epoll_wait -> native channel -> Netty pipeline -> handler"
+  insight="Native transport changes the IO boundary. It does not fix blocking handlers, unbounded queues, bad framing, or slow downstream services."
+/>
 
 ## Runtime behavior
 
@@ -33,18 +46,48 @@ epoll can be used in level-triggered or edge-triggered modes. With edge-triggere
 
 Netty hides much of this complexity, but the runtime cost model still matters.
 
+<RuntimeTrace title="Readiness is not completion">
+Register | The channel registers interest in read or write readiness.
+Wait | The EventLoop blocks in the readiness wait until work appears.
+Wake | The kernel reports descriptors that can make progress now.
+Process | Netty reads, writes, and fires pipeline events.
+Re-arm | Interest changes as buffers fill, drain, or the channel closes.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollServerSocketChannel;
+
+public final class LinuxNativeTransport {
+    public ServerBootstrap bootstrap() {
+        if (!Epoll.isAvailable()) {
+            throw new IllegalStateException("Linux epoll transport is not available", Epoll.unavailabilityCause());
+        }
+
 EventLoopGroup boss = new EpollEventLoopGroup(1);
 EventLoopGroup workers = new EpollEventLoopGroup();
 
-ServerBootstrap bootstrap = new ServerBootstrap()
-    .group(boss, workers)
-    .channel(EpollServerSocketChannel.class);
+        return new ServerBootstrap()
+            .group(boss, workers)
+            .channel(EpollServerSocketChannel.class);
+    }
+}
 ```
 
 Native transport should be a measured choice, not a cosmetic change.
+
+<Warning title="Native transport has packaging consequences">
+The Linux epoll transport requires the native transport dependency with the right classifier for the target architecture. Verify startup logs or `Epoll.isAvailable()` in the same container image you deploy, not only on your laptop.
+</Warning>
+
+<Highlight title="Netty version note">
+Some current Netty examples use newer `MultiThreadIoEventLoopGroup` style setup with transport-specific IO handler factories. Older projects often use `EpollEventLoopGroup`. Keep the chapter's lesson stable: choose the transport deliberately, verify it actually loads, and benchmark with your workload.
+</Highlight>
 
 ## Production implications
 

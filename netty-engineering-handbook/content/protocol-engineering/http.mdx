@@ -19,34 +19,84 @@ A custom server treats the first blank line as the end of an HTTP request. That 
 
 Let protocol codecs handle syntax. Put application code behind complete HTTP messages or streamed body chunks, depending on the workload.
 
+HTTP is two contracts at once:
+
+- semantic contract: method, path, headers, status, caching, authentication
+- transport contract: connection reuse, body streaming, backpressure, timeouts, intermediaries
+
 ## Visual explanation
 
 <FlowDiagram title="HTTP pipeline">
 TCP bytes -> HttpServerCodec -> HttpObjectAggregator or streaming chunks -> Application handler
 </FlowDiagram>
 
+<FlowComparison
+  title="Aggregate or stream"
+  leftTitle="Aggregate body"
+  leftSubtitle="Simple, bounded, memory-backed"
+  leftFlow="HTTP chunks -> Aggregator limit -> FullHttpRequest -> Handler"
+  rightTitle="Stream body"
+  rightSubtitle="More complex, required for large bodies"
+  rightFlow="HTTP chunks -> Handler consumes demand -> Backpressure -> Incremental response"
+  insight="Aggregation is a design choice. It is safe only when the maximum body size is explicit and small enough for the service."
+/>
+
 ## Runtime behavior
 
 HTTP/1.1 can reuse connections. Requests and responses must preserve ordering on a connection unless pipelining rules are deliberately handled. Large bodies may arrive as chunks.
 
+<RuntimeTrace title="HTTP request lifecycle">
+Decode start line | Method, URI, and protocol version are parsed.
+Decode headers | Host, content length, transfer encoding, auth, and routing metadata appear.
+Handle body | The body is aggregated or streamed as chunks.
+Apply semantics | The application validates method, path, auth, content type, and size.
+Write response | Status, headers, and body are emitted in protocol order.
+Keep or close | Connection policy follows keep-alive, errors, idle timeout, or shutdown.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpServerCodec;
+import java.nio.charset.StandardCharsets;
+
+public final class SmallHttpPipeline {
+    public static void configure(ChannelPipeline pipeline) {
 pipeline.addLast(new HttpServerCodec());
 pipeline.addLast(new HttpObjectAggregator(1 << 20));
-pipeline.addLast(new SimpleChannelInboundHandler<FullHttpRequest>() {
+        pipeline.addLast(new HealthHandler());
+    }
+}
+
+final class HealthHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
         FullHttpResponse response = new DefaultFullHttpResponse(
             request.protocolVersion(),
             HttpResponseStatus.OK,
             Unpooled.copiedBuffer("ok", StandardCharsets.UTF_8)
         );
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
         ctx.writeAndFlush(response);
     }
-});
+}
 ```
 
 Aggregation is convenient, but it must be bounded.
+
+<Warning title="HTTP parsing is security-sensitive">
+Do not hand-roll header parsing, body limits, chunk handling, or upgrade behavior unless you are deliberately writing protocol infrastructure. Mature codecs exist because real HTTP has ambiguous-looking edge cases.
+</Warning>
 
 ## Production implications
 
