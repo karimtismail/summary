@@ -51,9 +51,9 @@ export const chapterSections = [
   {
     id: "code-example",
     label: "Code example",
-    displayLabel: "Complete working code",
+    displayLabel: "Practice it in code",
     navLabel: "Code",
-    prompt: "كود كامل تقدر تشغله وتربطه بالحكاية.",
+    prompt: "شوف الفكرة في كود أو أمر تقدر تربطه بالحكاية.",
     required: true
   },
   {

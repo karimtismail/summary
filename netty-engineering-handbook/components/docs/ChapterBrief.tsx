@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { BookOpenCheck, ChevronRight } from "lucide-react";
-import type { ChapterCheatSheet } from "@/lib/handbook";
+import { ChevronRight } from "lucide-react";
 import { allChapters, contentCurrentAsOf, sections } from "@/lib/navigation";
 
 export function ChapterBrief({
@@ -8,15 +7,13 @@ export function ChapterBrief({
   description,
   sectionSlug,
   chapterSlug,
-  sectionTitle,
-  sheet
+  sectionTitle
 }: {
   title: string;
   description: string;
   sectionSlug: string;
   chapterSlug: string;
   sectionTitle: string;
-  sheet: ChapterCheatSheet;
 }) {
   const chapterIndex = allChapters.findIndex((chapter) => chapter.section === sectionSlug && chapter.slug === chapterSlug);
   const section = sections.find((item) => item.slug === sectionSlug);
@@ -51,14 +48,6 @@ export function ChapterBrief({
             </span>
           ) : null}
         </div>
-      </div>
-
-      <div className="mt-6 rounded-lg border border-accent/30 bg-accent/10 p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <BookOpenCheck className="h-4 w-4 text-accent" />
-          <h2 className="text-sm font-semibold text-text">Why this lesson exists</h2>
-        </div>
-        <p className="text-sm leading-6 text-muted [overflow-wrap:anywhere]">{sheet.problem}</p>
       </div>
     </section>
   );

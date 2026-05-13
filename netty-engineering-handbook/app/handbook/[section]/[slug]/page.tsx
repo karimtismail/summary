@@ -3,6 +3,7 @@ import { compileMDX } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import { ChapterBrief } from "@/components/docs/ChapterBrief";
 import { ChapterReview } from "@/components/docs/ChapterCheatSheet";
+import { ChapterStoryGuide } from "@/components/docs/ChapterStoryGuide";
 import { PrerequisitePanel } from "@/components/docs/PrerequisitePanel";
 import { ReadingTools } from "@/components/docs/ReadingTools";
 import { TableOfContents } from "@/components/docs/TableOfContents";
@@ -69,6 +70,12 @@ export default async function ChapterPage({ params }: PageProps) {
           sectionSlug={section}
           chapterSlug={slug}
           sectionTitle={chapter.sectionTitle}
+        />
+        <ChapterStoryGuide
+          title={chapterSource.frontmatter.title ?? chapter.title}
+          description={chapterSource.frontmatter.description ?? chapter.description}
+          sectionSlug={section}
+          chapterSlug={slug}
           sheet={chapterSource.cheatSheet}
         />
         <ReadingTools title={chapterSource.frontmatter.title ?? chapter.title} mentalModel={chapterSource.cheatSheet.mentalModel} terms={prerequisites} />
