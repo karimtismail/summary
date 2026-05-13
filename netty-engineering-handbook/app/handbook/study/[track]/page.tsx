@@ -53,14 +53,40 @@ export default async function StudyTrackPage({ params }: PageProps) {
   });
   const labs = getPracticeLabs(track.slug);
   const trackStepIds = new Set(progressSteps.map((step) => step.id));
-  const trackPhases = new Set(progressSteps.map((step) => step.phase));
+  const trackPhaseIds = new Set(track.phases.map((phase) => phase.phase));
+  const usedPhaseIds = new Set(progressSteps.map((step) => step.phase));
+  const seenPhaseIds = new Set<string>();
+  let activePhaseId: string | undefined;
+
+  for (const phase of track.phases) {
+    if (!usedPhaseIds.has(phase.phase)) {
+      throw new Error(`Study track "${track.slug}" declares unused phase "${phase.phase}".`);
+    }
+  }
+
+  for (const step of progressSteps) {
+    if (!trackPhaseIds.has(step.phase)) {
+      throw new Error(`Study track "${track.slug}" step "${step.id}" references undeclared phase "${step.phase}".`);
+    }
+    if (step.phase !== activePhaseId) {
+      if (seenPhaseIds.has(step.phase)) {
+        throw new Error(`Study track "${track.slug}" has non-contiguous phase "${step.phase}". Keep phases together or split the phase.`);
+      }
+      seenPhaseIds.add(step.phase);
+      activePhaseId = step.phase;
+    }
+  }
 
   for (const lab of labs) {
-    if (!trackPhases.has(lab.phase)) {
+    if (!trackPhaseIds.has(lab.phase)) {
       throw new Error(`Practice lab "${lab.id}" references missing phase "${lab.phase}" in study track "${track.slug}".`);
     }
     if (!trackStepIds.has(lab.afterStepId)) {
       throw new Error(`Practice lab "${lab.id}" references missing unlock step "${lab.afterStepId}" in study track "${track.slug}".`);
+    }
+    const unlockStep = progressSteps.find((step) => step.id === lab.afterStepId);
+    if (unlockStep?.phase !== lab.phase) {
+      throw new Error(`Practice lab "${lab.id}" unlocks after "${lab.afterStepId}" in phase "${unlockStep?.phase}", but lab phase is "${lab.phase}".`);
     }
     for (const coveredStepId of lab.coveredStepIds) {
       if (!trackStepIds.has(coveredStepId)) {
@@ -161,7 +187,7 @@ export default async function StudyTrackPage({ params }: PageProps) {
             </Link>
           </div>
 
-          <StudyProgress trackSlug={track.slug} steps={progressSteps} labs={labs} />
+          <StudyProgress trackSlug={track.slug} steps={progressSteps} labs={labs} phases={track.phases} />
         </section>
 
         <section className="mt-8 rounded-xl border border-warning/35 bg-warning/10 p-4 shadow-inset sm:p-5">

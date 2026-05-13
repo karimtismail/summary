@@ -26,7 +26,7 @@ export function PrerequisitePanel({
           <BookOpenCheck className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span id="prerequisite-title" className="block text-base font-semibold text-text">
+          <span id="prerequisite-title" role="heading" aria-level={2} className="block text-base font-semibold text-text">
             {title}
           </span>
           <span dir="rtl" lang="ar" className="mt-1 block text-right text-sm leading-7 text-muted">

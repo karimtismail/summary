@@ -45,7 +45,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="grid gap-2.5">
-              {["Choose Netty or Kafka", "Read prerequisites first", "Follow lessons in order", "Pause at unclear terms", "Use reference only for revisit"].map((item, index) => (
+              {["Choose one study path", "Open the concept map when terms feel fuzzy", "Follow lessons in order", "Practice when a lab appears", "Use reference only for revisit"].map((item, index) => (
                 <div key={item} className="flex items-center gap-3">
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-panel font-mono text-xs text-accent">
                     {String(index + 1).padStart(2, "0")}
@@ -72,7 +72,7 @@ export default function HomePage() {
             <div>
               <h2 className="text-2xl font-semibold tracking-[0] text-text sm:text-3xl">Study paths</h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-                Start here when you want to learn. Each path includes prerequisites, an ordered lesson route, and checkpoints so you know why you are reading each chapter.
+                Start here when you want to learn. Each path includes a concept map, an ordered lesson route, and checkpoints so you know why you are reading each chapter.
               </p>
             </div>
             <BookOpenCheck className="hidden h-8 w-8 text-accent md:block" />
@@ -88,7 +88,7 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-xl font-semibold text-text">{track.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted">{track.description}</p>
-                <p className="mt-4 text-sm font-medium text-accent">{track.steps.length} lessons · prerequisites explained first</p>
+                <p className="mt-4 text-sm font-medium text-accent">{track.steps.length} lessons · concept map included</p>
               </Link>
             ))}
           </div>

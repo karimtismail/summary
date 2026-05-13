@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Circle, FlaskConical, RotateCcw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { StudyLabCard } from "@/components/docs/StudyLabCard";
 import type { PracticeLab } from "@/lib/practiceLabs";
+import type { StudyPhase } from "@/lib/studyTracks";
 import { safeGetStorageItem, safeSetStorageItem } from "@/lib/safeStorage";
 import { cn } from "@/lib/utils";
 
@@ -92,45 +93,23 @@ function labProgressId(lab: PracticeLab) {
   return `${LAB_PROGRESS_PREFIX}${lab.id}`;
 }
 
-function learnerPhaseName(phase: string) {
-  const names: Record<string, string> = {
-    "Light foundation": "Quick foundation",
-    "Java NIO bridge": "Java NIO basics",
-    "Netty core": "Netty runtime",
-    "Protocol practice": "Build a protocol",
-    "Spring Boot bridge": "Use it in Spring Boot",
-    "Kafka core": "Kafka basics",
-    "Client behavior": "Producers and consumers",
-    Guarantees: "Delivery guarantees",
-    "Data contracts": "Event contracts",
-    Processing: "Stream processing",
-    "MongoDB core": "MongoDB basics",
-    "Query performance": "Make queries fast",
-    Correctness: "Safe writes",
-    "Scale and durability": "Scale and durability",
-    "Redis core": "Redis basics",
-    Caching: "Caching",
-    Reliability: "Restart and failover",
-    Messaging: "Messaging",
-    "Docker core": "Docker basics",
-    Builds: "Build images",
-    "Local systems": "Run local systems",
-    "WebSocket core": "WebSocket basics",
-    "Server design": "Server design",
-    Production: "Production thinking",
-    Foundation: "Foundation"
-  };
-
-  return names[phase] ?? phase;
+function fallbackPhases(steps: StudyProgressStep[]): StudyPhase[] {
+  return Object.keys(groupSteps(steps)).map((phase) => ({
+    phase,
+    label: phase,
+    outcome: "Finish the lessons in this phase before moving on.",
+    exitCheck: "You can explain the phase in your own words."
+  }));
 }
 
-export function StudyProgress({ trackSlug, steps, labs = [] }: { trackSlug: string; steps: StudyProgressStep[]; labs?: PracticeLab[] }) {
+export function StudyProgress({ trackSlug, steps, labs = [], phases }: { trackSlug: string; steps: StudyProgressStep[]; labs?: PracticeLab[]; phases?: StudyPhase[] }) {
   const storageKey = `handbook:study-progress:v1:${trackSlug}`;
   const subscribe = useCallback((callback: () => void) => subscribeProgress(storageKey, callback), [storageKey]);
   const getSnapshot = useCallback(() => readProgress(storageKey), [storageKey]);
   const completed = useSyncExternalStore(subscribe, getSnapshot, getServerProgressSnapshot);
   const groupedSteps = useMemo(() => groupSteps(steps), [steps]);
   const groupedLabs = useMemo(() => groupLabsByPhase(labs), [labs]);
+  const phaseGuides = useMemo(() => (phases?.length ? phases : fallbackPhases(steps)), [phases, steps]);
   const completedCount = useMemo(() => steps.filter((step) => completed[step.id]).length, [completed, steps]);
   const completedLabCount = useMemo(() => labs.filter((lab) => completed[labProgressId(lab)]).length, [completed, labs]);
   const progress = steps.length ? Math.round((completedCount / steps.length) * 100) : 0;
@@ -178,20 +157,28 @@ export function StudyProgress({ trackSlug, steps, labs = [] }: { trackSlug: stri
         </div>
       </div>
 
-      {Object.entries(groupedSteps).map(([phase, phaseSteps], phaseIndex) => {
-        const phaseLabs = groupedLabs[phase] ?? [];
-        const phaseTitle = `Phase ${phaseIndex + 1}: ${learnerPhaseName(phase)}`;
+      {phaseGuides.map((phaseGuide, phaseIndex) => {
+        const phaseSteps = groupedSteps[phaseGuide.phase] ?? [];
+        const phaseLabs = groupedLabs[phaseGuide.phase] ?? [];
+        if (!phaseSteps.length && !phaseLabs.length) return null;
+
+        const phaseTitle = `Phase ${phaseIndex + 1}: ${phaseGuide.label}`;
 
         return (
-          <div key={phase} className="space-y-3">
+          <div key={phaseGuide.phase} className="space-y-3">
             <section className="rounded-lg border border-border bg-card/70 p-3 sm:p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-accent" />
-                <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-muted">{phaseTitle}</h3>
+              <div className="mb-4 flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-muted">{phaseTitle}</h3>
+                  <p className="mt-1 text-sm leading-6 text-muted">{phaseGuide.outcome}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted/85">Exit check: {phaseGuide.exitCheck}</p>
+                </div>
               </div>
               <ol className="m-0 list-none divide-y divide-border p-0">
                 {phaseSteps.map((step) => {
                   const done = Boolean(completed[step.id]);
+                  const stepLabs = phaseLabs.filter((lab) => lab.afterStepId === step.id);
                   return (
                     <li key={step.id} className={cn("m-0 py-3 transition sm:py-3.5", done && "bg-accent-secondary/5")}>
                       <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3 sm:items-start">
@@ -233,30 +220,18 @@ export function StudyProgress({ trackSlug, steps, labs = [] }: { trackSlug: stri
                           </span>
                         </Link>
                       </div>
+                      {stepLabs.length ? (
+                        <div className="mt-3 grid gap-3 pl-[3.5rem]">
+                          {stepLabs.map((lab) => (
+                            <StudyLabCard key={lab.id} lab={lab} done={Boolean(completed[labProgressId(lab)])} onToggle={() => toggleProgressItem(labProgressId(lab))} />
+                          ))}
+                        </div>
+                      ) : null}
                     </li>
                   );
                 })}
               </ol>
             </section>
-
-            {phaseLabs.length ? (
-              <section className="rounded-lg border border-accent-secondary/30 bg-accent-secondary/5 p-3 sm:p-4" aria-label={`${phaseTitle} practice labs`}>
-                <div className="mb-3 flex items-start gap-2">
-                  <FlaskConical className="mt-0.5 h-4 w-4 text-accent-secondary" />
-                  <div className="min-w-0">
-                    <h4 className="text-sm font-semibold text-text">Practice before moving on</h4>
-                    <p className="mt-1 text-sm leading-6 text-muted">
-                      Finish the lesson phase, run the matching lab, then continue. This keeps practice tied to the idea you just learned.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-3">
-                  {phaseLabs.map((lab) => (
-                    <StudyLabCard key={lab.id} lab={lab} done={Boolean(completed[labProgressId(lab)])} onToggle={() => toggleProgressItem(labProgressId(lab))} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
           </div>
         );
       })}

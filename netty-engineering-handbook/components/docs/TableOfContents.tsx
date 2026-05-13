@@ -60,7 +60,7 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
             href={step.href}
             aria-current={step.active ? "location" : undefined}
             className={cn(
-              "block rounded-md border border-border bg-panel px-3 py-2 text-sm leading-5 text-muted transition hover:border-accent hover:text-text",
+              "block rounded-md border border-border bg-panel px-3 py-2 text-sm leading-5 text-muted transition hover:border-accent hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
               step.active && "border-accent bg-card text-text"
             )}
           >
@@ -69,7 +69,9 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
         ))}
       </div>
       <details className="rounded-lg border border-border bg-panel/55 p-3">
-        <summary className="cursor-pointer list-none text-xs font-medium text-muted transition hover:text-text">Open detailed steps</summary>
+        <summary className="cursor-pointer list-none rounded-sm text-xs font-medium text-muted transition hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          Open detailed steps
+        </summary>
         <div className="mt-3 space-y-1">
           {h2Headings.map((heading) => {
             const section = getChapterSectionByHeading(heading.text);
@@ -78,7 +80,7 @@ export function TableOfContents({ headings }: { headings: TocHeading[] }) {
                 key={heading.id}
                 href={`#${heading.id}`}
                 className={cn(
-                  "block border-l border-border py-1 pl-3 pr-2 text-xs leading-5 text-muted transition hover:border-accent hover:text-text",
+                  "block border-l border-border py-1 pl-3 pr-2 text-xs leading-5 text-muted transition hover:border-accent hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
                   activeId === heading.id && "border-accent text-text"
                 )}
               >

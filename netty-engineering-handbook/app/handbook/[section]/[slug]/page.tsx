@@ -12,7 +12,7 @@ import { Sidebar } from "@/components/docs/Sidebar";
 import { mdxComponents } from "@/components/mdx";
 import { findChapter } from "@/lib/navigation";
 import { getChapterSource, getStaticChapterParams } from "@/lib/mdx";
-import { getChapterPrerequisites, getStudyTrackForChapter } from "@/lib/studyTracks";
+import { getChapterPrerequisites, getStudyTracksForChapter } from "@/lib/studyTracks";
 
 type PageProps = {
   params: Promise<{ section: string; slug: string }>;
@@ -51,7 +51,8 @@ export default async function ChapterPage({ params }: PageProps) {
     options: { parseFrontmatter: false }
   });
   const prerequisites = getChapterPrerequisites(section, slug);
-  const studyTrack = getStudyTrackForChapter(section, slug);
+  const studyTracks = getStudyTracksForChapter(section, slug);
+  const studyTrackNames = studyTracks.map((track) => track.shortTitle).join(", ");
 
   return (
     <main
@@ -74,10 +75,10 @@ export default async function ChapterPage({ params }: PageProps) {
         <ReadingTools title={chapterSource.frontmatter.title ?? chapter.title} mentalModel={chapterSource.cheatSheet.mentalModel} terms={prerequisites} />
         <PrerequisitePanel
           items={prerequisites}
-          title="Before you start"
+          title="Terms you will meet"
           intro={
-            studyTrack
-              ? `This chapter appears in the ${studyTrack.shortTitle} study path. If any term below feels fuzzy, read the short explanation here, then continue.`
+            studyTracks.length
+              ? `This chapter appears in these study paths: ${studyTrackNames}. If any term below feels fuzzy, read the short explanation here, then continue.`
               : "If any term below feels fuzzy, read the short explanation here, then continue."
             }
         />

@@ -62,6 +62,9 @@ jobs:
       - name: Content contract
         run: npm run content:check
 
+      - name: Study contract
+        run: npm run study:check
+
       - name: Security content scan
         run: npm run security:content
 

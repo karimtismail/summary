@@ -54,7 +54,7 @@ export function CodeBlockClient({ code, language }: { code: string; language: st
         <button
           type="button"
           onClick={copy}
-          className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-muted transition hover:border-accent/50 hover:text-text"
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-medium text-muted transition hover:border-accent/50 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           aria-label="Copy code"
         >
           {copied ? <Check className="h-3.5 w-3.5 text-accent-secondary" /> : <Copy className="h-3.5 w-3.5" />}
@@ -62,7 +62,7 @@ export function CodeBlockClient({ code, language }: { code: string; language: st
         </button>
       </div>
       {hydrated ? (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" tabIndex={0} aria-label="Scrollable code example">
           <SyntaxHighlighter
             language={language}
             style={oneDark}
@@ -80,7 +80,11 @@ export function CodeBlockClient({ code, language }: { code: string; language: st
           </SyntaxHighlighter>
         </div>
       ) : (
-        <pre className="m-0 overflow-x-auto bg-transparent p-[1.15rem] text-sm leading-7 text-[#abb2bf]">
+        <pre
+          className="m-0 overflow-x-auto bg-transparent p-[1.15rem] text-sm leading-7 text-[#abb2bf] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          tabIndex={0}
+          aria-label="Scrollable code example"
+        >
           <code style={{ fontFamily: "var(--font-mono)" }}>{code}</code>
         </pre>
       )}

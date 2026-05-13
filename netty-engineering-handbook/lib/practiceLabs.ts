@@ -64,7 +64,7 @@ const practiceLabsByTrack: Record<string, PracticeLab[]> = {
       phase: "Spring Boot bridge",
       timing: "After Spring Boot and Reactor Netty",
       afterStepId: "netty-core/spring-boot",
-      coveredStepIds: ["netty-core/spring-boot", "performance/backpressure"],
+      coveredStepIds: ["netty-core/spring-boot"],
       estimatedMinutes: 40,
       difficulty: "Production",
       title: "Spring Boot WebFlux audit",

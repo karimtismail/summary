@@ -15,6 +15,13 @@ export type StudyStep = {
   optional?: boolean;
 };
 
+export type StudyPhase = {
+  phase: string;
+  label: string;
+  outcome: string;
+  exitCheck: string;
+};
+
 export type StudyTrack = {
   slug: string;
   title: string;
@@ -22,6 +29,7 @@ export type StudyTrack = {
   description: string;
   promise: string;
   startHref: string;
+  phases: StudyPhase[];
   prerequisites: Prerequisite[];
   steps: StudyStep[];
 };
@@ -364,6 +372,44 @@ export const studyTracks: StudyTrack[] = [
     description: "A single route from networking basics to Java NIO, Netty internals, protocol design, Spring Boot WebFlux, and production tuning.",
     promise: "By the end, you should be able to explain why Netty exists, how bytes move through it, how to avoid blocking the EventLoop, and how it appears inside Spring Boot.",
     startHref: "/handbook/foundations/networking-fundamentals",
+    phases: [
+      {
+        phase: "Foundation",
+        label: "Foundation",
+        outcome: "Build the networking vocabulary before Netty classes appear.",
+        exitCheck: "You can explain sockets, TCP streams, and why blocking IO becomes painful."
+      },
+      {
+        phase: "Java NIO bridge",
+        label: "Java NIO basics",
+        outcome: "See the lower-level Java primitives that Netty wraps.",
+        exitCheck: "You can explain channels, buffers, and selectors without using Netty words."
+      },
+      {
+        phase: "Netty core",
+        label: "Netty runtime",
+        outcome: "Understand how Netty moves work through EventLoops, futures, pipelines, handlers, and ByteBufs.",
+        exitCheck: "You can trace one inbound message from socket readiness to a business handler."
+      },
+      {
+        phase: "Protocol practice",
+        label: "Build a protocol",
+        outcome: "Turn byte movement into real application message boundaries.",
+        exitCheck: "You can design a frame, wait for complete input, and encode a response."
+      },
+      {
+        phase: "Spring Boot bridge",
+        label: "Use it in Spring Boot",
+        outcome: "Connect the raw Netty rules to WebFlux and Reactor Netty.",
+        exitCheck: "You can spot blocking work on a WebFlux event-loop path."
+      },
+      {
+        phase: "Production",
+        label: "Production thinking",
+        outcome: "Reason about backpressure and tuning from evidence instead of guesses.",
+        exitCheck: "You can name the bottleneck before changing runtime knobs."
+      }
+    ],
     prerequisites: terms(["tcp", "socket", "blocking-io", "channel", "buffer", "selector"]),
     steps: [
       { section: "foundations", slug: "networking-fundamentals", phase: "Foundation", reason: "Build the vocabulary for packets, sockets, latency, and throughput.", checkpoint: "You can explain what a socket is." },
@@ -391,7 +437,51 @@ export const studyTracks: StudyTrack[] = [
     shortTitle: "Kafka",
     description: "A focused path through distributed logs, brokers, partitions, replication, producers, consumers, delivery guarantees, schemas, streams, and operations.",
     promise: "By the end, you should be able to explain Kafka as a distributed log, reason about ordering and replay, and operate producers and consumers with confidence.",
-    startHref: "/handbook/kafka/distributed-log",
+    startHref: "/handbook/foundations/networking-fundamentals",
+    phases: [
+      {
+        phase: "Light foundation",
+        label: "Quick foundation",
+        outcome: "Refresh the network and capacity ideas Kafka relies on.",
+        exitCheck: "You can explain why brokers, producers, and consumers need bounded queues."
+      },
+      {
+        phase: "Kafka core",
+        label: "Kafka basics",
+        outcome: "Learn Kafka as a durable distributed log, not just a queue.",
+        exitCheck: "You can explain topic, partition, leader, follower, ISR, append, and replay."
+      },
+      {
+        phase: "Client behavior",
+        label: "Producers and consumers",
+        outcome: "Understand how clients create throughput, ordering, lag, and rebalances.",
+        exitCheck: "You can choose a key, ack strategy, and offset commit point intentionally."
+      },
+      {
+        phase: "Guarantees",
+        label: "Delivery guarantees",
+        outcome: "Connect retries, commits, idempotence, and transactions to real failure modes.",
+        exitCheck: "You can decide which duplicate or loss risk a workflow can tolerate."
+      },
+      {
+        phase: "Data contracts",
+        label: "Event contracts",
+        outcome: "Keep topic payloads evolvable for old records and future deploys.",
+        exitCheck: "You can describe one compatible and one breaking schema change."
+      },
+      {
+        phase: "Processing",
+        label: "Stream processing",
+        outcome: "See how Kafka supports stateful computation over event history.",
+        exitCheck: "You can explain windows, joins, and state stores at a high level."
+      },
+      {
+        phase: "Production",
+        label: "Production thinking",
+        outcome: "Operate retention, compaction, partitions, lag, and incident diagnosis from evidence.",
+        exitCheck: "You can read lag and form a debugging story before changing config."
+      }
+    ],
     prerequisites: terms(["distributed-log", "broker", "topic", "partition", "offset", "kafka-replication", "schema"]),
     steps: [
       { section: "foundations", slug: "networking-fundamentals", phase: "Light foundation", reason: "Kafka is a networked system, so latency and failure vocabulary helps.", checkpoint: "You can explain client-server communication." },
@@ -416,6 +506,44 @@ export const studyTracks: StudyTrack[] = [
     description: "A focused path through documents, schema design, queries, indexes, write guarantees, transactions, replication, sharding, and Spring Boot integration.",
     promise: "By the end, you should be able to model documents around access patterns, explain index choices, reason about write guarantees, and connect MongoDB cleanly from Spring Boot.",
     startHref: "/handbook/mongodb/documents-collections",
+    phases: [
+      {
+        phase: "MongoDB core",
+        label: "MongoDB basics",
+        outcome: "Understand documents and model data around how the app reads and writes.",
+        exitCheck: "You can choose embed or reference for a bounded relationship."
+      },
+      {
+        phase: "Query performance",
+        label: "Make queries fast",
+        outcome: "Use explain output to connect query shape with index shape.",
+        exitCheck: "You can prove whether an index supports both filter and sort."
+      },
+      {
+        phase: "Correctness",
+        label: "Safe writes",
+        outcome: "Decide when one-document atomicity is enough and when a transaction is justified.",
+        exitCheck: "You can name the invariant that forces or avoids a transaction."
+      },
+      {
+        phase: "Scale and durability",
+        label: "Scale and durability",
+        outcome: "Reason about replica sets, failover, stale reads, sharding, and hot keys.",
+        exitCheck: "You can explain why shard-key choice is an architecture decision."
+      },
+      {
+        phase: "Spring Boot bridge",
+        label: "Use it in Spring Boot",
+        outcome: "Use Spring repositories and templates while keeping database behavior visible.",
+        exitCheck: "You can configure a connection and avoid repository-shaped surprises."
+      },
+      {
+        phase: "Production",
+        label: "Production debugging",
+        outcome: "Diagnose slow queries, bad indexes, and rollout risk with evidence.",
+        exitCheck: "You can debug before changing indexes or data shape."
+      }
+    ],
     prerequisites: terms(["document", "collection", "index", "write-concern", "mongodb-replication", "shard-key"]),
     steps: [
       { section: "mongodb", slug: "documents-collections", phase: "MongoDB core", reason: "Start with the unit MongoDB actually stores and returns.", checkpoint: "You can explain document vs collection." },
@@ -434,6 +562,38 @@ export const studyTracks: StudyTrack[] = [
     description: "A focused path through Redis data types, caching, TTLs, eviction, persistence, replication, streams, pub/sub, and Spring Boot integration.",
     promise: "By the end, you should be able to choose the right Redis data type, design cache invalidation, understand memory pressure, and use Redis safely from Spring Boot.",
     startHref: "/handbook/redis/data-types",
+    phases: [
+      {
+        phase: "Redis core",
+        label: "Redis basics",
+        outcome: "Choose Redis data types by workflow instead of treating Redis as only key-value strings.",
+        exitCheck: "You can pick a string, hash, set, sorted set, or stream for a real use case."
+      },
+      {
+        phase: "Caching",
+        label: "Caching",
+        outcome: "Design cache-aside, invalidation, TTL, eviction, and stampede behavior deliberately.",
+        exitCheck: "You can explain what happens when a hot key expires under traffic."
+      },
+      {
+        phase: "Reliability",
+        label: "Restart and failover",
+        outcome: "Understand what Redis can and cannot promise after restart or replica lag.",
+        exitCheck: "You can explain RDB, AOF, and replication tradeoffs at a high level."
+      },
+      {
+        phase: "Messaging",
+        label: "Messaging",
+        outcome: "Choose between live pub/sub and replayable streams.",
+        exitCheck: "You can explain what happens to pending stream messages when a consumer dies."
+      },
+      {
+        phase: "Spring Boot bridge",
+        label: "Use it in Spring Boot",
+        outcome: "Use Spring caching and templates without hiding serializer and key-shape decisions.",
+        exitCheck: "You can pick a cache key and serializer intentionally."
+      }
+    ],
     prerequisites: terms(["cache", "ttl", "eviction", "stream", "redis-replication", "backpressure"]),
     steps: [
       { section: "redis", slug: "data-types", phase: "Redis core", reason: "Redis is not just key-value strings; the data type is the design.", checkpoint: "You can choose a string, hash, set, sorted set, or stream." },
@@ -451,12 +611,44 @@ export const studyTracks: StudyTrack[] = [
     description: "A focused path through containers, images, Dockerfiles, layers, Compose, networks, volumes, build cache, multi-stage builds, Spring Boot packaging, and debugging.",
     promise: "By the end, you should be able to build a small image, run a multi-service local stack, preserve data with volumes, and debug container failures without guessing.",
     startHref: "/handbook/docker/containers-images",
+    phases: [
+      {
+        phase: "Docker core",
+        label: "Docker basics",
+        outcome: "Separate the running process from the image artifact that starts it.",
+        exitCheck: "You can explain image vs container without mixing build time and runtime."
+      },
+      {
+        phase: "Builds",
+        label: "Build images",
+        outcome: "Understand Dockerfile layers, cache reuse, and multi-stage image boundaries.",
+        exitCheck: "You can reorder a Dockerfile to improve cache reuse and keep runtime images smaller."
+      },
+      {
+        phase: "Local systems",
+        label: "Run local systems",
+        outcome: "Run multiple services together with predictable networking and persistent state.",
+        exitCheck: "You can explain service names, published ports, and volumes."
+      },
+      {
+        phase: "Spring Boot bridge",
+        label: "Use it with Spring Boot",
+        outcome: "Package a Java service while keeping secrets and config out of the image.",
+        exitCheck: "You can expose the app, pass env vars, and prove secrets are not baked into layers."
+      },
+      {
+        phase: "Production",
+        label: "Production debugging",
+        outcome: "Debug a failing container from process, config, filesystem, network, and dependency evidence.",
+        exitCheck: "You can classify a container failure as image, command, config, or dependency."
+      }
+    ],
     prerequisites: terms(["container", "image", "layer", "volume", "compose", "socket"]),
     steps: [
       { section: "docker", slug: "containers-images", phase: "Docker core", reason: "Separate the running process from the artifact that starts it.", checkpoint: "You can explain image vs container." },
       { section: "docker", slug: "dockerfiles-layers", phase: "Builds", reason: "Learn how Dockerfile instructions become cached filesystem layers.", checkpoint: "You can reorder a Dockerfile to improve cache reuse." },
-      { section: "docker", slug: "compose-networking-volumes", phase: "Local systems", reason: "Run an app plus database without losing data or network access.", checkpoint: "You can explain service names, ports, and volumes." },
       { section: "docker", slug: "build-cache-multistage", phase: "Builds", reason: "Keep images smaller and rebuilds faster.", checkpoint: "You can explain what gets copied from a build stage." },
+      { section: "docker", slug: "compose-networking-volumes", phase: "Local systems", reason: "Run an app plus database without losing data or network access.", checkpoint: "You can explain service names, ports, and volumes." },
       { section: "docker", slug: "dockerizing-spring-boot", phase: "Spring Boot bridge", reason: "Package a Java service with predictable runtime configuration.", checkpoint: "You can expose the app, pass env vars, and keep secrets out of the image." },
       { section: "docker", slug: "production-debugging", phase: "Production", reason: "Inspect logs, mounts, networks, resources, and image assumptions.", checkpoint: "You can debug a container that exits immediately." }
     ]
@@ -467,7 +659,39 @@ export const studyTracks: StudyTrack[] = [
     shortTitle: "WebSocket",
     description: "A focused path through HTTP upgrade, frames, lifecycle, server design, Spring Boot WebSocket/STOMP, scaling, and security.",
     promise: "By the end, you should be able to explain how a WebSocket connection starts, how messages move, how to design a server, and what breaks under scale.",
-    startHref: "/handbook/websocket/handshake-upgrade",
+    startHref: "/handbook/protocol-engineering/http",
+    phases: [
+      {
+        phase: "Light foundation",
+        label: "Quick foundation",
+        outcome: "Refresh the HTTP request that WebSocket upgrades from.",
+        exitCheck: "You can explain request, response, headers, status, and why 101 matters."
+      },
+      {
+        phase: "WebSocket core",
+        label: "WebSocket basics",
+        outcome: "Understand handshake, upgrade, frames, ping, pong, close, and connection lifecycle.",
+        exitCheck: "You can describe what happens before and after status 101."
+      },
+      {
+        phase: "Server design",
+        label: "Server design",
+        outcome: "Design connection ownership, routing, registries, and failure behavior.",
+        exitCheck: "You can explain how a server knows which connection to send to."
+      },
+      {
+        phase: "Spring Boot bridge",
+        label: "Use it in Spring Boot",
+        outcome: "Choose raw WebSocket or STOMP without confusing destinations with REST routes.",
+        exitCheck: "You can choose raw WebSocket vs STOMP for a simple product feature."
+      },
+      {
+        phase: "Production",
+        label: "Production thinking",
+        outcome: "Handle auth, origins, load balancing, sticky sessions, fanout, and broadcast pressure.",
+        exitCheck: "You can name what breaks when a second server is added."
+      }
+    ],
     prerequisites: terms(["http", "tcp", "websocket-handshake", "websocket-frame", "backpressure", "stomp"]),
     steps: [
       { section: "protocol-engineering", slug: "http", phase: "Light foundation", reason: "WebSocket starts as an HTTP request before upgrading.", checkpoint: "You can explain request, response, headers, and status." },
@@ -545,6 +769,10 @@ export function getStudyTrack(slug: string) {
 
 export function getStudyTrackForChapter(section: string, slug: string) {
   return studyTracks.find((track) => track.steps.some((step) => step.section === section && step.slug === slug));
+}
+
+export function getStudyTracksForChapter(section: string, slug: string) {
+  return studyTracks.filter((track) => track.steps.some((step) => step.section === section && step.slug === slug));
 }
 
 export function getChapterPrerequisites(section: string, slug: string): Prerequisite[] {

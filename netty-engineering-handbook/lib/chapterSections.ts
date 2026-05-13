@@ -75,9 +75,9 @@ export const chapterSections = [
   {
     id: "common-bugs",
     label: "Common bugs",
-    displayLabel: "What came next",
-    navLabel: "Next",
-    prompt: "إيه اللي جه بعد كده يحل ألمها؟",
+    displayLabel: "Common traps",
+    navLabel: "Bugs",
+    prompt: "إيه الأخطاء المتكررة؟ وإزاي تتجنبها؟",
     required: true
   },
   {

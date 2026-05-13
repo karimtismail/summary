@@ -12,7 +12,11 @@ export function ArchitectureDiagram({ children, title }: { children: ReactNode; 
           <span className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted">Diagram</span>
         </figcaption>
       ) : null}
-      <pre className="m-0 overflow-x-auto p-5 font-mono text-sm leading-7 text-muted [tab-size:2]">
+      <pre
+        className="m-0 overflow-x-auto p-5 font-mono text-sm leading-7 text-muted [tab-size:2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        tabIndex={0}
+        aria-label={title ? `Scrollable diagram: ${title}` : "Scrollable architecture diagram"}
+      >
         <code>{code}</code>
       </pre>
     </figure>

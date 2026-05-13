@@ -8,7 +8,10 @@ export function PrevNext({ section, slug }: { section: string; slug: string }) {
   return (
     <nav className="mt-16 grid gap-4 border-t border-border pt-8 sm:grid-cols-2" aria-label="Previous and next chapters">
       {previous ? (
-        <Link className="group rounded-lg border border-border bg-panel p-4 transition hover:border-accent/50 hover:bg-card" href={previous.href}>
+        <Link
+          className="group rounded-lg border border-border bg-panel p-4 transition hover:border-accent/50 hover:bg-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          href={previous.href}
+        >
           <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted">
             <ArrowLeft className="h-3.5 w-3.5" />
             Previous
@@ -20,7 +23,10 @@ export function PrevNext({ section, slug }: { section: string; slug: string }) {
         <div />
       )}
       {next ? (
-        <Link className="group rounded-lg border border-border bg-panel p-4 text-right transition hover:border-accent/50 hover:bg-card" href={next.href}>
+        <Link
+          className="group rounded-lg border border-border bg-panel p-4 text-right transition hover:border-accent/50 hover:bg-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          href={next.href}
+        >
           <div className="mb-2 flex items-center justify-end gap-2 text-xs uppercase tracking-[0.14em] text-muted">
             Next
             <ArrowRight className="h-3.5 w-3.5" />

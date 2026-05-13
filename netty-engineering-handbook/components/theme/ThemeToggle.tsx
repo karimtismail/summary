@@ -10,8 +10,9 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-panel text-muted shadow-inset transition hover:border-accent/50 hover:text-text"
-      aria-label="Toggle theme"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border bg-panel text-muted shadow-inset transition hover:border-accent/50 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-pressed={isDark}
       suppressHydrationWarning
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
