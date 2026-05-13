@@ -76,16 +76,16 @@ export default async function StudyTrackPage({ params }: PageProps) {
               </h1>
               <p className="mt-4 max-w-3xl text-base leading-7 text-muted sm:text-lg sm:leading-8">{track.description}</p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href={track.startHref}
-                  className="inline-flex items-center gap-2 rounded-md border border-accent/45 bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-secondary"
+                <a
+                  href="#lessons"
+                  className="inline-flex items-center gap-2 rounded-md border border-accent/45 bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  Start the path
+                  See the path
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </a>
                 <Link
                   href="/handbook"
-                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-text"
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   Topic library
                 </Link>
@@ -108,21 +108,30 @@ export default async function StudyTrackPage({ params }: PageProps) {
 
         <PrerequisitePanel
           items={track.prerequisites}
-          title={`Before ${track.shortTitle}`}
-          intro="Read these mini-explanations first. If one is unclear, open its linked chapter, then come back and continue the path."
+          title={`Concept map for ${track.shortTitle}`}
+          intro="This is not homework before you begin. It is the small map you come back to when a term interrupts the story."
         />
 
-        <section className="rounded-xl border border-border bg-panel p-4 shadow-inset sm:p-5">
-          <div className="mb-5 flex items-start gap-3">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-accent-secondary">
-              <Compass className="h-4 w-4" />
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold tracking-[0] text-text">Lessons in order</h2>
-              <p className="mt-1 text-sm leading-6 text-muted">
-                Follow these from top to bottom. Use the topic library later when you already know what you want to revisit.
-              </p>
+        <section id="lessons" className="scroll-mt-24 rounded-xl border border-border bg-panel p-4 shadow-inset sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-accent-secondary">
+                <Compass className="h-4 w-4" />
+              </span>
+              <div>
+                <h2 className="text-xl font-semibold tracking-[0] text-text">Lessons in order</h2>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  Follow these from top to bottom. Use the topic library later when you already know what you want to revisit.
+                </p>
+              </div>
             </div>
+            <Link
+              href={track.startHref}
+              className="inline-flex w-fit shrink-0 items-center gap-2 rounded-md border border-accent/45 bg-card px-3 py-2 text-sm font-semibold text-accent transition hover:bg-accent hover:text-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Start lesson 1
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <StudyProgress trackSlug={track.slug} steps={progressSteps} />

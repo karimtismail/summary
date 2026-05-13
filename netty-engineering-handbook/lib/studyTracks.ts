@@ -180,8 +180,8 @@ const termCatalog = {
     why: "Groups explain scaling reads, rebalancing, and why one partition is read by only one consumer in a group at a time.",
     href: "/handbook/kafka/consumers-offsets"
   },
-  replication: {
-    key: "replication",
+  "kafka-replication": {
+    key: "kafka-replication",
     term: "Replication",
     explanation: "Replication means multiple brokers keep copies of the same partition data.",
     why: "Kafka durability and failover depend on leader and follower replicas.",
@@ -194,8 +194,8 @@ const termCatalog = {
     why: "Without schema rules, Kafka topics become hard to evolve safely.",
     href: "/handbook/kafka/schema-evolution"
   },
-  transaction: {
-    key: "transaction",
+  "kafka-transaction": {
+    key: "kafka-transaction",
     term: "Transaction",
     explanation: "A transaction groups work so Kafka can make stronger guarantees about what becomes visible.",
     why: "Exactly-once discussions are mostly about idempotence, transactions, and boundaries.",
@@ -236,6 +236,20 @@ const termCatalog = {
     why: "It is the line between fast writes and durability expectations.",
     href: "/handbook/mongodb/writes-transactions"
   },
+  "mongodb-transaction": {
+    key: "mongodb-transaction",
+    term: "Transaction",
+    explanation: "A MongoDB transaction coordinates multiple writes so related documents commit or abort together.",
+    why: "Use it when one-document atomicity cannot protect the business invariant.",
+    href: "/handbook/mongodb/writes-transactions"
+  },
+  "mongodb-replication": {
+    key: "mongodb-replication",
+    term: "Replication",
+    explanation: "MongoDB replication keeps copies of data across replica set members for failover and read availability.",
+    why: "Replica sets explain primary election, stale reads, and why durability is not only a local disk question.",
+    href: "/handbook/mongodb/replication-sharding"
+  },
   "shard-key": {
     key: "shard-key",
     term: "Shard key",
@@ -270,6 +284,13 @@ const termCatalog = {
     explanation: "A Redis stream is an append-only data structure for event-like messages.",
     why: "Streams give you replay and consumer groups where pub/sub only broadcasts live messages.",
     href: "/handbook/redis/streams-pubsub"
+  },
+  "redis-replication": {
+    key: "redis-replication",
+    term: "Replication",
+    explanation: "Redis replication copies writes from a primary to replicas, usually asynchronously.",
+    why: "It improves availability and read scale, but failover and replica lag still shape correctness.",
+    href: "/handbook/redis/persistence-replication"
   },
   image: {
     key: "image",
@@ -371,7 +392,7 @@ export const studyTracks: StudyTrack[] = [
     description: "A focused path through distributed logs, brokers, partitions, replication, producers, consumers, delivery guarantees, schemas, streams, and operations.",
     promise: "By the end, you should be able to explain Kafka as a distributed log, reason about ordering and replay, and operate producers and consumers with confidence.",
     startHref: "/handbook/kafka/distributed-log",
-    prerequisites: terms(["distributed-log", "broker", "topic", "partition", "offset", "replication", "schema"]),
+    prerequisites: terms(["distributed-log", "broker", "topic", "partition", "offset", "kafka-replication", "schema"]),
     steps: [
       { section: "foundations", slug: "networking-fundamentals", phase: "Light foundation", reason: "Kafka is a networked system, so latency and failure vocabulary helps.", checkpoint: "You can explain client-server communication." },
       { section: "performance", slug: "backpressure", phase: "Light foundation", reason: "Kafka protects systems by making producers and consumers respect capacity.", checkpoint: "You know why unbounded queues are dangerous." },
@@ -395,7 +416,7 @@ export const studyTracks: StudyTrack[] = [
     description: "A focused path through documents, schema design, queries, indexes, write guarantees, transactions, replication, sharding, and Spring Boot integration.",
     promise: "By the end, you should be able to model documents around access patterns, explain index choices, reason about write guarantees, and connect MongoDB cleanly from Spring Boot.",
     startHref: "/handbook/mongodb/documents-collections",
-    prerequisites: terms(["document", "collection", "index", "write-concern", "replication", "shard-key"]),
+    prerequisites: terms(["document", "collection", "index", "write-concern", "mongodb-replication", "shard-key"]),
     steps: [
       { section: "mongodb", slug: "documents-collections", phase: "MongoDB core", reason: "Start with the unit MongoDB actually stores and returns.", checkpoint: "You can explain document vs collection." },
       { section: "mongodb", slug: "schema-design", phase: "MongoDB core", reason: "Learn how access patterns shape embedding and references.", checkpoint: "You can choose embed or reference for a simple relationship." },
@@ -413,7 +434,7 @@ export const studyTracks: StudyTrack[] = [
     description: "A focused path through Redis data types, caching, TTLs, eviction, persistence, replication, streams, pub/sub, and Spring Boot integration.",
     promise: "By the end, you should be able to choose the right Redis data type, design cache invalidation, understand memory pressure, and use Redis safely from Spring Boot.",
     startHref: "/handbook/redis/data-types",
-    prerequisites: terms(["cache", "ttl", "eviction", "stream", "replication", "backpressure"]),
+    prerequisites: terms(["cache", "ttl", "eviction", "stream", "redis-replication", "backpressure"]),
     steps: [
       { section: "redis", slug: "data-types", phase: "Redis core", reason: "Redis is not just key-value strings; the data type is the design.", checkpoint: "You can choose a string, hash, set, sorted set, or stream." },
       { section: "redis", slug: "caching-patterns", phase: "Caching", reason: "Learn the app-side contract behind cache-aside and invalidation.", checkpoint: "You can describe cache miss, fill, invalidate, and stampede." },
@@ -484,24 +505,24 @@ const chapterPrerequisiteKeys = {
   "performance/tuning": ["event-loop", "backpressure"],
   "kafka/distributed-log": ["topic", "partition"],
   "kafka/brokers-topics-partitions": ["broker", "topic", "partition"],
-  "kafka/replication-isr": ["broker", "partition", "replication"],
+  "kafka/replication-isr": ["broker", "partition", "kafka-replication"],
   "kafka/producers": ["topic", "partition", "schema"],
   "kafka/consumers-offsets": ["partition", "offset", "consumer-group"],
-  "kafka/delivery-semantics": ["offset", "consumer-group", "transaction"],
-  "kafka/transactions-idempotence": ["delivery-semantics", "transaction"],
+  "kafka/delivery-semantics": ["offset", "consumer-group", "kafka-transaction"],
+  "kafka/transactions-idempotence": ["delivery-semantics", "kafka-transaction"],
   "kafka/schema-evolution": ["schema", "topic"],
   "kafka/stream-processing": ["topic", "partition", "backpressure"],
   "kafka/operations-performance": ["broker", "partition", "offset", "backpressure"],
   "mongodb/documents-collections": ["document", "collection"],
   "mongodb/schema-design": ["document", "collection"],
   "mongodb/queries-indexes": ["document", "index"],
-  "mongodb/writes-transactions": ["document", "write-concern", "transaction"],
-  "mongodb/replication-sharding": ["replication", "shard-key"],
+  "mongodb/writes-transactions": ["document", "write-concern", "mongodb-transaction"],
+  "mongodb/replication-sharding": ["mongodb-replication", "shard-key"],
   "mongodb/spring-boot-mongodb": ["document", "index", "write-concern"],
   "redis/data-types": ["cache", "stream"],
   "redis/caching-patterns": ["cache", "ttl", "backpressure"],
   "redis/expiration-eviction": ["ttl", "eviction", "cache"],
-  "redis/persistence-replication": ["replication", "cache"],
+  "redis/persistence-replication": ["redis-replication", "cache"],
   "redis/streams-pubsub": ["stream", "backpressure"],
   "redis/spring-boot-redis": ["cache", "ttl", "eviction"],
   "docker/containers-images": ["container", "image"],

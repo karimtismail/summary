@@ -8,7 +8,7 @@
   --card: #f1eee7;
   --text: #20242c;
   --muted: #667085;
-  --accent: #ad7448;
+  --accent: #8f5d39;
   --accent-secondary: #587f61;
   --danger: #b35f46;
   --warning: #b18430;
@@ -49,6 +49,11 @@ body {
   font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+[lang="ar"] {
+  font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  line-height: 1.9;
 }
 
 ::selection {

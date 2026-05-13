@@ -1,4 +1,15 @@
-import { Activity, AlertTriangle, CheckCircle2, FlaskConical, Hammer, Lightbulb, MessageSquareText, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  FlaskConical,
+  Hammer,
+  Lightbulb,
+  MessageSquareText,
+  type LucideIcon
+} from "lucide-react";
+import { practiceLoopSteps } from "@/lib/learningLoop";
 import type { PracticeLab } from "@/lib/practiceLabs";
 
 type LabChecklistProps = {
@@ -14,17 +25,9 @@ const toneStyles = {
   warning: "text-warning"
 } satisfies Record<LabChecklistProps["tone"], string>;
 
-const loopSteps = [
-  { label: "Build", detail: "Make the smallest working version." },
-  { label: "Break safely", detail: "Force the failure while it is safe." },
-  { label: "Observe", detail: "Collect proof from logs, metrics, or behavior." },
-  { label: "Explain", detail: "Say the reason in your own words." },
-  { label: "Proof", detail: "Keep one clear check that shows the idea is yours." }
-];
-
 function LabChecklist({ title, items, icon: Icon, tone }: LabChecklistProps) {
   return (
-    <div className="min-w-0 rounded-md border border-border bg-panel p-3 [overflow-wrap:anywhere]">
+    <div className="min-w-0 border-l border-border pl-3 [overflow-wrap:anywhere]">
       <div className="mb-3 flex items-center gap-2">
         <Icon className={`h-4 w-4 ${toneStyles[tone]}`} />
         <p className="text-sm font-semibold text-text">{title}</p>
@@ -60,29 +63,37 @@ export function PracticeLabs({ labs }: { labs: PracticeLab[] }) {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        {loopSteps.map((step, index) => (
-          <div key={step.label} className="rounded-md border border-border bg-card px-3 py-2.5">
+      <ol className="mb-5 mt-0 grid list-none gap-px overflow-hidden rounded-lg border border-border bg-border p-0 sm:grid-cols-2 xl:grid-cols-5">
+        {practiceLoopSteps.map((step, index) => (
+          <li
+            key={step.label}
+            className="m-0 min-w-0 bg-card/80 px-3 py-3"
+          >
             <span className="font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</span>
             <p className="mt-1 text-sm font-semibold text-text">{step.label}</p>
             <p className="mt-1 text-xs leading-5 text-muted">{step.detail}</p>
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
 
       <div className="grid gap-3 xl:grid-cols-2">
         {labs.map((lab) => (
-          <details key={lab.title} className="rounded-lg border border-border bg-card p-4 [overflow-wrap:anywhere]">
-            <summary className="cursor-pointer list-none">
-              <span className="block text-base font-semibold text-text">{lab.title}</span>
-              <span className="mt-1 block text-sm leading-6 text-muted">{lab.goal}</span>
+          <details key={lab.title} className="group rounded-lg border border-border bg-card p-4 [overflow-wrap:anywhere]">
+            <summary className="flex cursor-pointer list-none items-start justify-between gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
+              <span className="min-w-0">
+                <span className="block text-base font-semibold text-text">{lab.title}</span>
+                <span className="mt-1 block text-sm leading-6 text-muted">{lab.goal}</span>
+              </span>
+              <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-panel text-muted transition group-open:rotate-180 group-hover:text-text">
+                <ChevronDown className="h-4 w-4" />
+              </span>
             </summary>
             <div className="mt-4 border-t border-border pt-4">
               <div className="grid gap-3 md:grid-cols-2">
                 <LabChecklist title="Build" items={lab.build} icon={Hammer} tone="accent" />
                 <LabChecklist title="Break safely" items={lab.breakIt} icon={AlertTriangle} tone="warning" />
                 <LabChecklist title="Observe" items={lab.observe} icon={Activity} tone="secondary" />
-                <div className="min-w-0 rounded-md border border-border bg-panel p-3 [overflow-wrap:anywhere]">
+                <div className="min-w-0 border-l border-border pl-3 [overflow-wrap:anywhere]">
                   <div className="mb-3 flex items-center gap-2">
                     <MessageSquareText className="h-4 w-4 text-accent" />
                     <p className="text-sm font-semibold text-text">Explain</p>

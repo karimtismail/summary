@@ -3,6 +3,7 @@
 import { BookOpenCheck, Maximize2, Minimize2 } from "lucide-react";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { GlossaryTerm } from "@/components/docs/GlossaryTerm";
+import { safeGetStorageItem, safeSetStorageItem } from "@/lib/safeStorage";
 import type { Prerequisite } from "@/lib/studyTracks";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,7 @@ const flagCache = new Map<string, { raw: string | null; value: boolean }>();
 
 function readFlagSnapshot(key: string) {
   if (typeof window === "undefined") return false;
-  const raw = window.localStorage.getItem(key);
+  const raw = safeGetStorageItem(key);
   const cached = flagCache.get(key);
   if (cached?.raw === raw) return cached.value;
   const value = raw === "1";
@@ -46,7 +47,7 @@ function subscribeFlag(key: string, callback: () => void) {
 
 function writeFlag(key: string, value: boolean) {
   const raw = value ? "1" : "0";
-  window.localStorage.setItem(key, raw);
+  safeSetStorageItem(key, raw);
   flagCache.set(key, { raw, value });
   window.dispatchEvent(new Event(FLAG_EVENT));
 }

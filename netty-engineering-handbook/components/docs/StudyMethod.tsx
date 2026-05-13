@@ -1,27 +1,12 @@
 import { Activity, BookOpenCheck, CheckCircle2, FlaskConical, MessageSquareText } from "lucide-react";
+import { studyRoutineSteps } from "@/lib/learningLoop";
 
-const studyMethodSteps = [
-  {
-    title: "Read the story",
-    detail: "Start with why the idea exists and what problem forced engineers to invent it.",
-    icon: BookOpenCheck
-  },
-  {
-    title: "Run one thing",
-    detail: "Use the smallest example that proves the concept instead of jumping into a big project.",
-    icon: FlaskConical
-  },
-  {
-    title: "Watch the evidence",
-    detail: "Look at logs, thread names, offsets, indexes, latency, or container state.",
-    icon: Activity
-  },
-  {
-    title: "Explain it back",
-    detail: "Close the page only when you can say the idea, the failure, and the fix simply.",
-    icon: MessageSquareText
-  }
-];
+const studyRoutineIcons = {
+  read: BookOpenCheck,
+  run: FlaskConical,
+  observe: Activity,
+  explain: MessageSquareText
+} satisfies Record<(typeof studyRoutineSteps)[number]["id"], typeof BookOpenCheck>;
 
 export function StudyMethod({ title }: { title: string }) {
   return (
@@ -30,28 +15,35 @@ export function StudyMethod({ title }: { title: string }) {
         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-accent">
           <CheckCircle2 className="h-4 w-4" />
         </span>
-        <div>
+        <div className="min-w-0">
           <h2 id="study-method-title" className="text-xl font-semibold tracking-[0] text-text">
             How to study {title}
           </h2>
-          <p dir="rtl" lang="ar" className="mt-1 text-sm leading-7 text-muted">
+          <p dir="rtl" lang="ar" className="mt-2 max-w-3xl text-right text-sm leading-7 text-muted">
             امشيها كرحلة هادية: افهم القصة، جرّب حاجة صغيرة، راقب الدليل، وبعدها اشرحها لنفسك ببساطة.
           </p>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {studyMethodSteps.map((step) => {
-          const Icon = step.icon;
+      <ol className="m-0 grid list-none gap-0 overflow-hidden rounded-lg border border-border bg-card/45 p-0 md:grid-cols-2 xl:grid-cols-4">
+        {studyRoutineSteps.map((step, index) => {
+          const Icon = studyRoutineIcons[step.id];
           return (
-            <div key={step.title} className="min-w-0 rounded-lg border border-border bg-card p-4 [overflow-wrap:anywhere]">
-              <Icon className="h-4 w-4 text-accent-secondary" />
-              <h3 className="mt-3 text-sm font-semibold text-text">{step.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">{step.detail}</p>
-            </div>
+            <li key={step.label} className="m-0 min-w-0 border-border p-4 [overflow-wrap:anywhere] md:border-b xl:border-b-0 xl:border-r xl:last:border-r-0">
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-panel text-accent-secondary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <span className="block font-mono text-xs text-accent">{String(index + 1).padStart(2, "0")}</span>
+                  <h3 className="mt-1 text-sm font-semibold text-text">{step.label}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted">{step.detail}</p>
+                </div>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </section>
   );
 }

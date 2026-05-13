@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { safeGetStorageItem, safeSetStorageItem } from "@/lib/safeStorage";
 
 type Theme = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
@@ -28,7 +29,7 @@ function getSystemTheme(): ResolvedTheme {
 
 function readStoredTheme(defaultTheme: Theme): Theme {
   if (typeof window === "undefined") return defaultTheme;
-  const stored = window.localStorage.getItem(THEME_KEY);
+  const stored = safeGetStorageItem(THEME_KEY);
   return stored === "light" || stored === "dark" || stored === "system" ? stored : defaultTheme;
 }
 
@@ -58,7 +59,7 @@ export function ThemeProvider({ children, attribute = "class", defaultTheme = "d
     } else {
       root.setAttribute(attribute, resolvedTheme);
     }
-    window.localStorage.setItem(THEME_KEY, theme);
+    safeSetStorageItem(THEME_KEY, theme);
   }, [attribute, resolvedTheme, theme]);
 
   const value = useMemo<ThemeContextValue>(

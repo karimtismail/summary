@@ -50,16 +50,56 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
       - name: Lint
         run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Content contract
+        run: npm run content:check
+
+      - name: Security content scan
+        run: npm run security:content
+
       - name: Build application
         run: npm run build
         env:
-          GITHUB_PAGES: ${{ github.event_name != 'pull_request' && 'true' || 'false' }}
+          GITHUB_PAGES: "true"
+
+      - name: Start static preview
+        run: |
+          rm -rf /tmp/handbook-pages-preview
+          mkdir -p /tmp/handbook-pages-preview/summary
+          cp -R out/. /tmp/handbook-pages-preview/summary/
+          npx serve@latest /tmp/handbook-pages-preview --listen 3000 > /tmp/handbook-serve.log 2>&1 &
+
+      - name: Wait for static preview
+        run: |
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/summary/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/handbook-serve.log
+          exit 1
+
+      - name: Visual QA
+        run: VISUAL_QA_BASE_URL=http://127.0.0.1:3000/summary npm run visual:qa
+
+      - name: Upload visual QA artifacts
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: handbook-visual-qa
+          path: |
+            /tmp/netty-handbook-visual-qa-*
+            /tmp/handbook-serve.log
+          if-no-files-found: ignore
 
       - name: Prepare Pages artifact
         if: github.event_name != 'pull_request'
