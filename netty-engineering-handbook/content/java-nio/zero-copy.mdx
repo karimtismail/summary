@@ -19,6 +19,8 @@ A file server reads file bytes into a heap array and writes them to a socket. Th
 
 If your application does not need to parse or transform a payload, keep it out of application memory when possible.
 
+Zero copy is an architectural fit, not a decoration. It fits byte-moving services: static file serving, replication, proxying, and log shipping. It does not fit code that must inspect, compress, redact, encrypt in user space, or reshape every byte.
+
 ## Visual explanation
 
 <FlowDiagram title="Traditional transfer">
@@ -29,26 +31,65 @@ Disk -> Kernel buffer -> User buffer -> Kernel socket buffer -> NIC
 Disk -> Kernel path -> Socket and NIC
 </FlowDiagram>
 
+<FlowComparison
+  title="Interpreter vs mover"
+  leftTitle="Application interprets bytes"
+  leftSubtitle="Parsing or transformation required"
+  leftFlow="Read bytes -> Decode -> Validate -> Transform -> Write response"
+  rightTitle="Application moves bytes"
+  rightSubtitle="Payload can bypass user-space copies"
+  rightFlow="Open file -> transferTo -> Track partial progress -> Resume when socket is writable"
+  insight="Zero copy is strongest when the application owns policy and metadata, but not the payload bytes."
+/>
+
 ## Runtime behavior
 
 Java exposes zero-copy file transfer through `FileChannel.transferTo` and related APIs. Netty exposes this idea with file region support when the transport and pipeline allow it.
 
 TLS can change the story because bytes must be encrypted before leaving the process boundary.
 
+<RuntimeTrace title="transferTo lifecycle">
+Open | A file channel points at bytes already managed by the OS.
+Attempt | `transferTo(position, count, target)` asks the runtime and OS to move bytes to the target channel.
+Partial | The returned count may be smaller than requested because of file size, socket capacity, or non-blocking state.
+Record | The application updates the file position it still needs to send.
+Resume | The next writable event continues from the saved position.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-try (FileChannel file = FileChannel.open(path, StandardOpenOption.READ)) {
-    long position = 0;
-    while (position < file.size()) {
-        long sent = file.transferTo(position, file.size() - position, socketChannel);
-        if (sent == 0) break;
-        position += sent;
+import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
+
+public final class FileTransferState {
+    private final FileChannel file;
+    private long position;
+
+    public FileTransferState(FileChannel file) {
+        this.file = file;
+    }
+
+    public boolean transferTo(WritableByteChannel target) throws IOException {
+        long size = file.size();
+        while (position < size) {
+            long sent = file.transferTo(position, size - position, target);
+            if (sent == 0) {
+                return false;
+            }
+            position += sent;
+        }
+        return true;
     }
 }
 ```
 
-The loop is still required because the socket may not accept the entire file in one operation.
+The object keeps transfer progress. A non-blocking socket may accept zero bytes now, so the caller must keep this state and resume when the channel is writable again.
+
+<Warning title="Zero copy does not remove backpressure">
+The socket can still be full, the client can still be slow, and the transfer can still be partial. Treat file transfer as a paced outbound operation, not an instant side effect.
+</Warning>
 
 ## Production implications
 

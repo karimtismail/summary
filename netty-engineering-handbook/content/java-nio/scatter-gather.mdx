@@ -25,32 +25,88 @@ Keep protocol parts separate until the kernel needs to see them as a byte sequen
 
 Header buffer, length buffer, payload buffer, and checksum buffer can remain distinct while still being written in order.
 
+The important discipline is position ownership. Scatter-gather IO advances each buffer's position independently, so the buffers themselves become the write state.
+
 ## Visual explanation
 
 <FlowDiagram title="Gathering write">
 Header ByteBuffer -> Payload ByteBuffer -> channel.write(buffers) -> ordered bytes on socket
 </FlowDiagram>
 
+<FlowComparison
+  title="Copy first vs gather write"
+  leftTitle="Copy into one array"
+  leftSubtitle="Simple, extra memory traffic"
+  leftFlow="Header + payload -> temporary byte[] -> socket write"
+  rightTitle="Gather write"
+  rightSubtitle="More stateful, fewer copies"
+  rightFlow="Header ByteBuffer + payload ByteBuffer -> channel.write(ByteBuffer[]) -> positions advance"
+  insight="Gathering is valuable when the message is naturally segmented and large enough that avoiding a copy is worth the bookkeeping."
+/>
+
 ## Runtime behavior
 
 The channel advances each buffer position as bytes are written. A partial write may consume the header and only part of the payload. The application must keep the buffer array until all buffers are drained.
 
+<RuntimeTrace title="Partial gathering write">
+Prepare | Header and payload buffers are flipped for reading by the channel.
+Attempt | `channel.write(buffers)` writes as many bytes as the channel accepts now.
+Advance | Buffer positions move according to the bytes actually written.
+Pause | A non-blocking channel may return zero before all buffers drain.
+Resume | The same buffers stay queued until every `hasRemaining()` is false.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-ByteBuffer header = ByteBuffer.allocate(8);
-header.putInt(payload.remaining());
-header.putInt(version);
-header.flip();
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 
-ByteBuffer[] message = { header, payload };
-while (hasRemaining(message)) {
-    long written = channel.write(message);
-    if (written == 0) break;
+public final class GatheringMessageWriter {
+    public PendingMessage create(int version, ByteBuffer payload) {
+        ByteBuffer header = ByteBuffer.allocate(8);
+        header.putInt(payload.remaining());
+        header.putInt(version);
+        header.flip();
+
+        return new PendingMessage(new ByteBuffer[] { header, payload });
+    }
+}
+
+final class PendingMessage {
+    private final ByteBuffer[] buffers;
+
+    PendingMessage(ByteBuffer[] buffers) {
+        this.buffers = buffers;
+    }
+
+    boolean writeTo(SocketChannel channel) throws IOException {
+        while (hasRemaining()) {
+            long written = channel.write(buffers);
+            if (written == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasRemaining() {
+        for (ByteBuffer buffer : buffers) {
+            if (buffer.hasRemaining()) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 ```
 
-The loop still matters because gathering does not eliminate partial writes.
+The pending message keeps the same buffer array across write attempts. That state matters because gathering does not eliminate partial writes.
+
+<Warning title="Do not mutate queued buffers">
+Once a buffer is queued for a non-blocking write, treat its remaining bytes as owned by the IO path. Mutating the payload before the write completes can corrupt the wire message.
+</Warning>
 
 ## Production implications
 

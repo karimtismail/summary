@@ -25,15 +25,39 @@ Design for compatibility:
 - version events by contract, not just code release
 - test old data with new consumers
 
+Kafka decouples producers and consumers, so schema changes are multi-deploy migrations. A safe change usually means consumers become tolerant before producers become ambitious.
+
 ## Visual explanation
 
 <FlowDiagram title="Safe event change">
 Add optional field -> Deploy tolerant consumers -> Produce both fields -> Migrate readers -> Remove only after retention and policy allow
 </FlowDiagram>
 
+<FlowComparison
+  title="Breaking rename vs compatible migration"
+  leftTitle="Breaking rename"
+  leftSubtitle="Fast deploy, expensive outage"
+  leftFlow="Producer renames field -> Old consumers fail -> Replay breaks -> Hotfix under pressure"
+  rightTitle="Compatible migration"
+  rightSubtitle="Slower deploy, safe history"
+  rightFlow="Add optional field -> Consumers read both -> Producers write both -> Readers switch -> Old field removed after policy"
+  insight="A Kafka event is not a request DTO. It is durable history, so compatibility must account for old records and slow consumers."
+/>
+
 ## Runtime behavior
 
 Schema Registry systems can enforce compatibility for Avro, Protobuf, or JSON Schema. The broker stores bytes, but registry checks can prevent incompatible producers from writing.
+
+Kafka itself does not include a schema registry, but production Kafka platforms commonly pair topics with a registry that stores historical schemas, applies compatibility rules, and lets serializers identify which schema wrote each record.
+
+<RuntimeTrace title="Schema evolution rollout">
+Propose | Add the new field or event version in the schema repository.
+Check | CI verifies compatibility against historical schemas.
+Tolerate | Consumers deploy code that can read old and new shapes.
+Produce | Producers start writing the new shape while preserving old contracts.
+Observe | Consumer errors, dead letters, and replay tests confirm safety.
+Retire | Old fields disappear only after retention, replay, and consumer policy allow it.
+</RuntimeTrace>
 
 ## Code example
 
@@ -50,6 +74,25 @@ Schema Registry systems can enforce compatibility for Avro, Protobuf, or JSON Sc
 ```
 
 Adding a nullable field with a default is a common compatible change.
+
+```java
+public record OrderCreatedV2(
+    String orderId,
+    String customerId,
+    String accountId,
+    String salesChannel
+) {
+    public String stableAccountId() {
+        return accountId != null ? accountId : customerId;
+    }
+}
+```
+
+The compatibility adapter keeps old records readable while the organization migrates from `customerId` to `accountId`.
+
+<Warning title="Do not redefine meaning in place">
+Changing `customerId` from a customer identifier to an account identifier without a migration field is worse than a rename: the old consumers may keep running while silently making wrong decisions.
+</Warning>
 
 ## Production implications
 

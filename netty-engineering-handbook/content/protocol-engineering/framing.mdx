@@ -26,6 +26,8 @@ Common framing strategies:
 
 Length-prefix framing is common for binary protocols because it is explicit and efficient.
 
+The framing rule must be decided before decoding business meaning. A decoder cannot safely parse "order created" until it first knows where that frame begins and ends.
+
 ## Visual explanation
 
 <ArchitectureDiagram title="Length-prefix frame">
@@ -35,23 +37,58 @@ Length-prefix framing is common for binary protocols because it is explicit and 
 +---------+----------------------+
 </ArchitectureDiagram>
 
+<FlowComparison
+  title="Framing choices"
+  leftTitle="Delimiter"
+  leftSubtitle="Human-friendly, scanning cost"
+  leftFlow="Read bytes -> Search delimiter -> Extract frame -> Handle escaped delimiter cases"
+  rightTitle="Length prefix"
+  rightSubtitle="Binary-friendly, validation required"
+  rightFlow="Read header -> Validate length -> Wait for payload -> Slice complete frame"
+  insight="Delimiter protocols are easy to inspect. Length-prefix protocols are usually easier to bound and parse at high throughput."
+/>
+
 ## Runtime behavior
 
 A decoder must wait until enough bytes exist for the header, read the length, then wait until enough bytes exist for the payload. Partial input is normal, not exceptional.
 
+<RuntimeTrace title="Length-prefix decoder lifecycle">
+Need header | If fewer than four bytes exist, wait for more input.
+Peek length | Read the length without consuming bytes permanently.
+Validate | Reject negative, huge, or policy-breaking lengths.
+Need payload | If the full payload has not arrived, keep the partial bytes.
+Emit frame | Consume exactly one complete frame and pass it to the next handler.
+Repeat | If more bytes remain, decode the next complete frame.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-pipeline.addLast(new LengthFieldBasedFrameDecoder(
-    1 << 20, // max frame length
-    0,      // length field offset
-    4,      // length field size
-    0,      // length adjustment
-    4       // strip length field
-));
+import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+
+public final class LengthPrefixedProtocol {
+    public static void configure(ChannelPipeline pipeline) {
+        pipeline.addLast(new LengthFieldBasedFrameDecoder(
+            1 << 20, // max frame length
+            0,      // length field offset
+            4,      // length field size
+            0,      // length adjustment
+            4       // strip length field
+        ));
+    }
+}
 ```
 
 The decoder turns arbitrary TCP chunks into complete frames for later handlers.
+
+<Warning title="Framing is an attack surface">
+Every frame format needs a maximum size, a bad-length policy, and a timeout or connection policy for peers that start a frame and never finish it.
+</Warning>
+
+<Highlight title="Do not mix framing and business parsing">
+Keep the first decoder responsible for boundaries only. Parse domain objects after a complete frame exists; otherwise partial input and malformed input become much harder to reason about.
+</Highlight>
 
 ## Production implications
 

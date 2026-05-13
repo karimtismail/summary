@@ -29,11 +29,22 @@ The selector loop is simple:
 
 The hard part is fairness and state ownership.
 
+Readiness is a permission to try, not a promise that the whole application message is available. The selector tells you which channel can probably make progress; your protocol code still has to handle partial reads, partial writes, and per-connection state.
+
 ## Visual explanation
 
 <FlowDiagram title="Selector loop">
 select -> selected keys -> read, write, accept, or connect -> update interest ops -> select again
 </FlowDiagram>
+
+<RuntimeTrace title="One selector turn">
+Wait | `select()` blocks until at least one registered channel is ready or the selector wakes.
+Collect | `selectedKeys()` contains keys whose ready set matched the interest set.
+Remove | The loop removes each selected key so it is not processed again accidentally.
+Dispatch | Accept, connect, read, or write work runs for the channel.
+Bound | The handler does a limited amount of work so other keys get a turn.
+Update | Interest ops change, especially for writes that are only needed when data is queued.
+</RuntimeTrace>
 
 ## Runtime behavior
 
@@ -44,22 +55,50 @@ Readiness is not a guarantee of complete application work. It is a signal to try
 ## Code example
 
 ```java
-while (running) {
-    selector.select();
-    Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+import java.io.IOException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
+import java.util.Iterator;
 
-    while (keys.hasNext()) {
-        SelectionKey key = keys.next();
-        keys.remove();
+public final class SelectorLoop {
+    public void run(Selector selector) throws IOException {
+        while (running) {
+            selector.select();
+            Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
-        if (!key.isValid()) continue;
-        if (key.isReadable()) readFrom((SocketChannel) key.channel());
-        if (key.isWritable()) flushTo((SocketChannel) key.channel());
+            while (keys.hasNext()) {
+                SelectionKey key = keys.next();
+                keys.remove();
+
+                if (!key.isValid()) continue;
+                if (key.isReadable()) readFrom((SocketChannel) key.channel());
+                if (key.isWritable()) flushTo((SocketChannel) key.channel());
+            }
+        }
+    }
+
+    private boolean running = true;
+
+    private void readFrom(SocketChannel channel) throws IOException {
+        // Read into per-connection state. A full application frame may not exist yet.
+    }
+
+    private void flushTo(SocketChannel channel) throws IOException {
+        // Write queued buffers, then remove OP_WRITE when the queue drains.
     }
 }
 ```
 
 Removing selected keys matters. Otherwise the same event can be processed repeatedly.
+
+<Warning title="Do not keep OP_WRITE on forever">
+Most sockets are writable most of the time. If every connection is always interested in writes, the selector can spin on write readiness and starve useful read work. Register write interest only while outbound data is queued.
+</Warning>
+
+<Highlight title="This is why Netty exists">
+Selectors expose the raw event-driven shape. Netty adds channel state, pipelines, buffers, futures, and safer handler boundaries so every team does not rebuild this loop by hand.
+</Highlight>
 
 ## Production implications
 
