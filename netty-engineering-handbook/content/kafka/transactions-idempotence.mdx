@@ -31,25 +31,71 @@ Read input -> Begin transaction -> Write output -> Send offsets to transaction -
 
 A transactional producer has a `transactional.id`. Kafka uses producer epochs and transaction markers to fence old producer instances and expose committed records to consumers using `read_committed`.
 
+<RuntimeTrace title="Transactional consume-process-produce">
+Initialize | The producer registers transactional identity and gets fenced if an older instance is unsafe.
+Begin | A transaction starts before output records are produced.
+Produce | Output records are written but not visible to `read_committed` consumers yet.
+Offsets | The input offsets are sent to the same transaction.
+Commit | Output records and offset progress become visible together.
+Abort | Output records stay hidden and offsets do not advance.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-producer.initTransactions();
+import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
+import java.util.List;
+import java.util.Map;
 
-producer.beginTransaction();
-try {
-    for (ConsumerRecord<String, Order> record : records) {
-        producer.send(toInvoice(record));
+public final class TransactionalInvoiceProcessor {
+    private final KafkaProducer<String, InvoiceCreated> producer;
+
+    public TransactionalInvoiceProcessor(KafkaProducer<String, InvoiceCreated> producer) {
+        this.producer = producer;
+        this.producer.initTransactions();
     }
-    producer.sendOffsetsToTransaction(offsets, consumer.groupMetadata());
-    producer.commitTransaction();
-} catch (Exception error) {
-    producer.abortTransaction();
-    throw error;
+
+    public void process(
+        List<ConsumerRecord<String, OrderPaid>> records,
+        Map<TopicPartition, OffsetAndMetadata> offsets,
+        ConsumerGroupMetadata groupMetadata
+    ) {
+        producer.beginTransaction();
+        try {
+            for (ConsumerRecord<String, OrderPaid> record : records) {
+                OrderPaid order = record.value();
+                producer.send(new ProducerRecord<>(
+                    "invoice-created",
+                    order.orderId(),
+                    new InvoiceCreated(order.orderId(), order.amountCents())
+                ));
+            }
+
+            producer.sendOffsetsToTransaction(offsets, groupMetadata);
+            producer.commitTransaction();
+        } catch (RuntimeException error) {
+            producer.abortTransaction();
+            throw error;
+        }
+    }
 }
+
+record OrderPaid(String orderId, long amountCents) {}
+record InvoiceCreated(String orderId, long amountCents) {}
 ```
 
 The output records and offset progress commit together.
+
+Consumers that depend on this output should set `isolation.level=read_committed`; otherwise they may observe records from transactions that later abort.
+
+<Warning title="External writes are outside this transaction">
+This pattern protects Kafka input offsets and Kafka output records. If the same handler also writes to PostgreSQL, MongoDB, Redis, or an external API, that side effect needs its own idempotency or an outbox-style design.
+</Warning>
 
 ## Production implications
 

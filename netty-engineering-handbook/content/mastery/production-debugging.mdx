@@ -28,30 +28,92 @@ Follow the lifecycle:
 - can writes drain?
 - do closes look intentional?
 
+Debugging is a narrowing exercise. A good incident note should say: **we first saw symptom X, ruled out layers A and B, confirmed layer C with signal Y, changed Z, and verified with metric W.**
+
 ## Visual explanation
 
 <FlowDiagram title="Incident path">
 Symptom -> Layer hypothesis -> Runtime metric -> Targeted trace -> Small fix -> Verification
 </FlowDiagram>
 
+<FlowComparison
+  title="Guessing vs evidence"
+  leftTitle="Panic path"
+  leftSubtitle="Looks busy, usually makes blast radius bigger"
+  leftFlow="Timeouts -> Raise timeouts -> Add threads -> Restart nodes -> Lose evidence"
+  rightTitle="Evidence path"
+  rightSubtitle="Slower for five minutes, faster for the incident"
+  rightFlow="Timeouts -> Identify stuck boundary -> Capture metric and trace -> Change one control -> Verify under load"
+  insight="Most outages are not solved by the first knob. They are solved by finding the first boundary where reality diverged from expectation."
+/>
+
 ## Runtime behavior
 
 Netty gives useful signals if you expose them: EventLoop delay, pending tasks, channel counts, allocator usage, write buffer bytes, decode failures, and exception types.
 
+<RuntimeTrace title="Layered evidence ladder">
+Client | Error type, timeout phase, retry behavior, connection reuse.
+Load balancer | Open connections, resets, 4xx/5xx shape, backend health.
+Kernel | SYN backlog, accept queue, retransmits, socket states.
+Runtime | EventLoop delay, pending tasks, direct memory, write buffer growth.
+Protocol | Decode failures, invalid frames, handshake failures, close reasons.
+Application | Handler latency, downstream calls, queue depth, side-effect errors.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-    metrics.counter("netty.pipeline.exception",
-        "handler", getClass().getSimpleName(),
-        "type", cause.getClass().getSimpleName()
-    ).increment();
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import java.net.SocketAddress;
 
-    ctx.close();
+public final class ConnectionTelemetryHandler extends ChannelInboundHandlerAdapter {
+    private final Metrics metrics;
+
+    public ConnectionTelemetryHandler(Metrics metrics) {
+        this.metrics = metrics;
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) {
+        metrics.counter("netty.channel.active").increment();
+        ctx.fireChannelActive();
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) {
+        metrics.counter("netty.channel.inactive").increment();
+        ctx.fireChannelInactive();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        SocketAddress remote = ctx.channel().remoteAddress();
+
+        metrics.counter("netty.pipeline.exception",
+            "handler", getClass().getSimpleName(),
+            "type", cause.getClass().getSimpleName(),
+            "remoteKnown", String.valueOf(remote != null)
+        ).increment();
+
+        ctx.close();
+    }
+}
+
+interface Metrics {
+    Counter counter(String name, String... tags);
+}
+
+interface Counter {
+    void increment();
 }
 ```
 
 The handler name and exception type help locate the failing boundary.
+
+<Warning title="Do not debug by leaking data">
+During incidents, log protocol phase, handler name, channel id, remote presence, error class, and safe correlation ids. Avoid raw payloads, tokens, cookies, credentials, or full personal data unless you have a controlled redaction path.
+</Warning>
 
 ## Production implications
 

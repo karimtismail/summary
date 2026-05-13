@@ -19,25 +19,72 @@ Tutorial projects often stop at echo servers. Echo servers teach connection setu
 
 Choose projects that force a specific runtime lesson. Keep the feature small and the behavior sharp.
 
+Do not ask "what can I build?" first. Ask "what failure do I need to understand?" Then build the smallest system that makes that failure observable.
+
 ## Visual explanation
 
 <FlowDiagram title="Project progression">
 Blocking chat -> NIO reactor -> Netty framed protocol -> Backpressured broadcast -> Production diagnostics
 </FlowDiagram>
 
+<ArchitectureDiagram title="Project ladder">
+Level 1: Blocking echo
+  proves: socket basics, thread-per-connection pain
+
+Level 2: Selector reactor
+  proves: readiness, partial reads, state machines
+
+Level 3: Netty framed protocol
+  proves: EventLoop, pipeline, decoder, encoder, ByteBuf ownership
+
+Level 4: Broadcast with slow clients
+  proves: writability, backpressure, bounded queues
+
+Level 5: Observable service
+  proves: metrics, logs, failure injection, runbook thinking
+</ArchitectureDiagram>
+
 ## Runtime behavior
 
 Each project should include fault injection: partial writes, slow consumers, malformed frames, reconnect storms, large payloads, and downstream delay. The failure is the teacher.
 
+<RuntimeTrace title="A project review loop">
+Build | Implement the smallest behavior that exposes one runtime rule.
+Break | Add a failure case that should stress the rule.
+Observe | Capture metrics, logs, thread names, memory, and protocol phase.
+Explain | Write the failure story before fixing it.
+Harden | Add bounds, tests, and a runbook note.
+</RuntimeTrace>
+
 ## Code example
 
-```java
-// A useful project requirement:
-// When one client stops reading, other clients must keep receiving messages,
-// memory must remain bounded, and the slow client must be paused or closed.
+```text
+Project: backpressured room broadcast
+
+Requirement:
+  When one client stops reading, other clients must keep receiving messages.
+  Memory must remain bounded.
+  The slow client must be paused, downgraded, or closed by policy.
+
+Failure injection:
+  - one client reads one byte per second
+  - one client sends malformed length-prefixed frames
+  - one client reconnects every 100 ms
+  - one producer sends a burst larger than the per-channel queue limit
+
+Evidence:
+  - channel writability changes
+  - per-client queued messages
+  - EventLoop delay
+  - close reason
+  - p95 and p99 delivery latency for healthy clients
 ```
 
 This requirement teaches more than another happy-path endpoint.
+
+<Warning title="A project without failure is a demo">
+If the project does not include a slow client, malformed input, restart, overload, or observability requirement, it will make the happy path familiar but leave the production lesson missing.
+</Warning>
 
 ## Production implications
 

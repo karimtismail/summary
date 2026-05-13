@@ -31,22 +31,45 @@ Domain response -> Versioned message -> Encoder -> Framed bytes -> Socket write
 
 Netty encoders run outbound. They often allocate an output `ByteBuf`, write header fields, serialize payloads, then pass bytes toward the transport.
 
+<RuntimeTrace title="Stable encoder cycle">
+Choose version | Decide the wire contract this client should receive.
+Reserve header | Leave room for length, flags, or checksum fields.
+Write payload | Encode fields in a deterministic order and charset.
+Patch metadata | Fill length or checksum after payload size is known.
+Pass bytes | Let framing, TLS, and transport handlers continue outbound.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-protected void encode(ChannelHandlerContext ctx, Response msg, ByteBuf out) {
-    int start = out.writerIndex();
-    out.writeInt(0); // reserve length
-    out.writeByte(msg.version());
-    out.writeLong(msg.requestId());
-    writePayload(out, msg.payload());
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.MessageToByteEncoder;
+import java.nio.charset.StandardCharsets;
 
-    int length = out.writerIndex() - start - Integer.BYTES;
-    out.setInt(start, length);
+public final class ResponseEncoder extends MessageToByteEncoder<Response> {
+    @Override
+    protected void encode(ChannelHandlerContext ctx, Response msg, ByteBuf out) {
+        int frameStart = out.writerIndex();
+
+        out.writeByte(msg.version());
+        out.writeInt(0); // payload length placeholder
+        out.writeLong(msg.requestId());
+        out.writeCharSequence(msg.payload(), StandardCharsets.UTF_8);
+
+        int payloadLength = out.writerIndex() - frameStart - 1 - Integer.BYTES;
+        out.setInt(frameStart + 1, payloadLength);
+    }
 }
+
+record Response(byte version, long requestId, String payload) {}
 ```
 
 Reserving the length lets the encoder fill it after the payload is known.
+
+<Warning title="Encoding is part of compatibility">
+If payload text, byte order, length calculation, or field order changes, old clients may parse valid bytes as the wrong message. Lock the wire contract with golden byte tests before changing it.
+</Warning>
 
 ## Production implications
 

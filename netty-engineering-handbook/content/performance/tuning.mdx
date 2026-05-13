@@ -26,27 +26,58 @@ Use a loop:
 5. compare distribution, not just average
 6. keep or revert
 
+The most useful tuning question is boring and precise: **which queue got longer first?** If you cannot name the first queue, the knob is probably a guess.
+
 ## Visual explanation
 
 <FlowDiagram title="Tuning loop">
 Baseline -> Hypothesis -> One change -> Load test -> Compare percentiles -> Decide
 </FlowDiagram>
 
+<RuntimeTrace title="Evidence before knobs">
+Workload | Define request mix, payload sizes, connection count, and arrival pattern.
+Baseline | Record latency percentiles, throughput, errors, CPU, memory, and downstream timing.
+Boundary | Locate whether pressure starts at accept, decode, handler, allocator, write buffer, or dependency.
+Change | Adjust one variable with an expected direction.
+Compare | Check p95 and p99, not only average or total throughput.
+Decision | Keep the change only if the original bottleneck moved in the expected way.
+</RuntimeTrace>
+
 ## Runtime behavior
 
 Netty exposes many knobs: EventLoop counts, allocator settings, write watermarks, socket options, native transports, batching, and flush behavior. Each knob changes queueing somewhere.
 
+Modern Netty documentation may show newer transport setup APIs such as `MultiThreadIoEventLoopGroup` with a transport-specific IO handler factory. Older examples often use `NioEventLoopGroup`. Treat constructor names as version-sensitive; treat the measurement workflow as the stable lesson.
+
 ## Code example
 
 ```java
-bootstrap
-    .option(ChannelOption.SO_BACKLOG, 1024)
-    .childOption(ChannelOption.TCP_NODELAY, true)
-    .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
-        new WriteBufferWaterMark(32 * 1024, 128 * 1024));
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.WriteBufferWaterMark;
+
+public final class MeasuredServerTuning {
+    public static void apply(ServerBootstrap bootstrap) {
+        bootstrap
+            .option(ChannelOption.SO_BACKLOG, 1024)
+            .childOption(ChannelOption.TCP_NODELAY, true)
+            .childOption(
+                ChannelOption.WRITE_BUFFER_WATER_MARK,
+                new WriteBufferWaterMark(32 * 1024, 128 * 1024)
+            );
+    }
+}
 ```
 
 These values are not universal. They express a workload hypothesis.
+
+<Warning title="A copied knob is technical debt">
+`SO_BACKLOG`, `TCP_NODELAY`, watermarks, allocator settings, and native transports are not badges of seniority. Each one should have a benchmark, dashboard, or incident note that explains why it exists.
+</Warning>
+
+<Highlight title="What the setting is trying to change">
+`SO_BACKLOG` changes the accept queue behavior under connection bursts. `TCP_NODELAY` changes packet coalescing latency tradeoffs. `WRITE_BUFFER_WATER_MARK` changes when a channel becomes non-writable. None of them fixes slow business code.
+</Highlight>
 
 ## Production implications
 

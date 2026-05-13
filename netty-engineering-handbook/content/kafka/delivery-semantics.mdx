@@ -23,26 +23,84 @@ Semantics by failure mode:
 - at-least-once: records may duplicate, not silently disappear after processing starts
 - exactly-once: duplicate effects are prevented inside a defined transactional boundary
 
+The boundary is the whole point. Kafka can protect Kafka records and committed Kafka offsets. It cannot magically undo a charged card, an email that was already sent, or a database write that did not participate in the same transaction.
+
 ## Visual explanation
 
 <FlowDiagram title="At-least-once failure">
 Read record -> Apply side effect -> Crash before commit -> Replay -> Side effect may repeat
 </FlowDiagram>
 
+<FlowComparison
+  title="Choose semantics by failure cost"
+  leftTitle="Commit before work"
+  leftSubtitle="At-most-once shape"
+  leftFlow="Poll record -> Commit offset -> Process -> Crash during processing -> Record is skipped"
+  rightTitle="Commit after work"
+  rightSubtitle="At-least-once shape"
+  rightFlow="Poll record -> Process -> Crash before commit -> Replay -> Side effect must be idempotent"
+  insight="A guarantee is not good or bad by itself. It is correct only when it matches the business cost of loss, duplicate work, and delay."
+/>
+
 ## Runtime behavior
 
 Kafka can provide idempotent producers and transactions for Kafka-to-Kafka workflows. External systems still need idempotency keys, transactional writes, or reconciliation.
 
+<RuntimeTrace title="End-to-end guarantee checklist">
+Produce | Producer retries, acknowledgements, keys, and idempotence decide what can appear in the log.
+Store | Topic replication and `acks` decide when a write is considered durable enough.
+Read | Consumer group assignment and polling decide which instance sees a partition.
+Process | Business code decides whether duplicate attempts are harmless.
+Commit | Offset commit position decides where replay resumes after crash.
+Side effect | External systems decide whether the same event id can apply twice.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-// Use the event id as an idempotency key in the side-effect store.
-if (repository.markProcessed(event.id())) {
-    applyBusinessEffect(event);
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import java.util.List;
+
+public final class IdempotentOrderConsumer {
+    private final ProcessedEventRepository processedEvents;
+    private final PaymentGateway payments;
+
+    public IdempotentOrderConsumer(ProcessedEventRepository processedEvents, PaymentGateway payments) {
+        this.processedEvents = processedEvents;
+        this.payments = payments;
+    }
+
+    public void processBatch(List<ConsumerRecord<String, OrderPlaced>> records) {
+        for (ConsumerRecord<String, OrderPlaced> record : records) {
+            OrderPlaced event = record.value();
+
+            if (!processedEvents.tryMarkProcessing(event.eventId())) {
+                continue;
+            }
+
+            payments.chargeOnce(event.eventId(), event.accountId(), event.amountCents());
+            processedEvents.markDone(event.eventId());
+        }
+    }
+}
+
+record OrderPlaced(String eventId, String accountId, long amountCents) {}
+
+interface ProcessedEventRepository {
+    boolean tryMarkProcessing(String eventId);
+    void markDone(String eventId);
+}
+
+interface PaymentGateway {
+    void chargeOnce(String idempotencyKey, String accountId, long amountCents);
 }
 ```
 
 This application-level guard often matters more than the broker setting.
+
+<Warning title="Commit position is not business correctness">
+Committing an offset says "this consumer group can resume after this record." It does not prove the external side effect is correct. For external systems, use idempotency keys, unique constraints, outbox/inbox tables, or reconciliation.
+</Warning>
 
 ## Production implications
 

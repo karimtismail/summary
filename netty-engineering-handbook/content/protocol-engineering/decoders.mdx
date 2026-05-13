@@ -29,25 +29,65 @@ Receive bytes -> Check enough header -> Check enough payload -> Emit message -> 
 
 Netty's `ByteToMessageDecoder` accumulates inbound bytes and calls `decode` repeatedly while progress is possible. If your decoder consumes bytes without emitting or waiting correctly, it can spin or corrupt data.
 
+<RuntimeTrace title="Safe decoder cycle">
+Peek | Inspect length or version without permanently moving the reader index.
+Validate | Reject impossible lengths before allocating or retaining.
+Wait | Return if the full frame has not arrived.
+Consume | Advance indexes only after the complete frame is present.
+Emit | Pass one typed message with a clear ownership rule.
+Repeat | Let Netty call `decode` again if another complete frame is buffered.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
-protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
-    if (in.readableBytes() < 4) return;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.handler.codec.CorruptedFrameException;
+import java.util.List;
 
-    in.markReaderIndex();
-    int length = in.readInt();
+public final class CommandDecoder extends ByteToMessageDecoder {
+    private static final int HEADER_BYTES = 5; // version + length
+    private static final int MAX_PAYLOAD_BYTES = 1 << 20;
 
-    if (in.readableBytes() < length) {
-        in.resetReaderIndex();
-        return;
+    @Override
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        if (in.readableBytes() < HEADER_BYTES) {
+            return;
+        }
+
+        int start = in.readerIndex();
+        byte version = in.getByte(start);
+        int length = in.getInt(start + 1);
+
+        if (version != 1) {
+            throw new CorruptedFrameException("unsupported protocol version: " + version);
+        }
+        if (length < 0 || length > MAX_PAYLOAD_BYTES) {
+            throw new CorruptedFrameException("invalid frame length: " + length);
+        }
+        if (in.readableBytes() < HEADER_BYTES + length) {
+            return;
+        }
+
+        in.skipBytes(HEADER_BYTES);
+        out.add(new Command(version, in.readRetainedSlice(length)));
     }
+}
 
-    out.add(new Message(in.readRetainedSlice(length)));
+record Command(byte version, ByteBuf payload) {
+    void release() {
+        payload.release();
+    }
 }
 ```
 
-The reader index reset protects partial frames.
+The decoder peeks with `getByte` and `getInt`, so partial input does not disturb the reader index. It advances only when the whole frame is present, validates impossible lengths before retaining memory, and emits a command with an explicit release path.
+
+<Warning title="Never trust the length field">
+A malicious or broken peer can claim a huge payload. Always set a maximum frame size before allocating, retaining, or waiting forever for bytes that should not be accepted.
+</Warning>
 
 ## Production implications
 
