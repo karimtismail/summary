@@ -102,6 +102,14 @@ protected void initChannel(SocketChannel ch) {
 
 Framing comes before message decoding because the decoder needs complete frames. Encoding is present before the application writes responses because outbound traversal must pass an encoder before bytes reach the socket.
 
+<Highlight title="Design the pipeline as a production map">
+In production, each handler name should help an incident review: `frameDecoder` owns message boundaries, `messageDecoder` owns parse errors, `authGate` owns rejection policy, and `application` owns business behavior. If one handler owns all of those, your logs will say "channel closed" when you need to know which boundary failed.
+</Highlight>
+
+<Warning title="Context matters when writing">
+`ctx.write(...)` starts outbound traversal from the current handler context. `ctx.channel().write(...)` starts from the pipeline tail. If a response skips the encoder you expected, first check which context initiated the write and where the encoder sits.
+</Warning>
+
 <RecallPrompt question="why can handler order change correctness even when every handler is individually correct?">
 Because the pipeline is the protocol path. A handler may require a message to be framed, decoded, authenticated, encoded, or still reference-counted before it can safely do its job.
 </RecallPrompt>

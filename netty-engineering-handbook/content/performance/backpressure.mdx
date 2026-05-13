@@ -32,18 +32,53 @@ Netty channels expose writability based on write buffer watermarks. Handlers can
 ## Code example
 
 ```java
-public void channelWritabilityChanged(ChannelHandlerContext ctx) {
-    if (!ctx.channel().isWritable()) {
-        ctx.channel().config().setAutoRead(false);
-        return;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.WriteBufferWaterMark;
+
+public final class BackpressureInitializer {
+    public void configure(SocketChannel ch) {
+        ch.config().setOption(
+            ChannelOption.WRITE_BUFFER_WATER_MARK,
+            new WriteBufferWaterMark(64 * 1024, 256 * 1024)
+        );
+        ch.pipeline().addLast("backpressure", new WritabilityBackpressureHandler());
+    }
+}
+
+final class WritabilityBackpressureHandler extends ChannelInboundHandlerAdapter {
+    @Override
+    public void channelWritabilityChanged(ChannelHandlerContext ctx) {
+        boolean writable = ctx.channel().isWritable();
+
+        ctx.channel().config().setAutoRead(writable);
+        ctx.fireChannelWritabilityChanged();
     }
 
-    ctx.channel().config().setAutoRead(true);
-    ctx.fireChannelWritabilityChanged();
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) {
+        ctx.channel().config().setAutoRead(true);
+        ctx.fireChannelInactive();
+    }
 }
 ```
 
-This links outbound pressure to inbound demand.
+This links outbound pressure to inbound demand: when queued outbound bytes cross the high watermark, the channel stops reading more input; when the queue drains below the low watermark, reads resume.
+
+<Warning title="Backpressure is not only a Netty switch">
+`autoRead(false)` protects one channel from pulling more bytes, but it does not tell your business producer, Kafka consumer, scheduler, or WebSocket broadcaster to slow down. Production backpressure must travel to the place where new work is created.
+</Warning>
+
+<RuntimeTrace title="Pressure control loop">
+Produce | Application writes faster than the peer can receive.
+Buffer | Netty queues outbound bytes for the channel.
+High watermark | `isWritable()` becomes false.
+Pause | The handler stops reading or producing optional work.
+Drain | The peer catches up and queued bytes fall below the low watermark.
+Resume | `isWritable()` becomes true and input can continue.
+</RuntimeTrace>
 
 ## Production implications
 

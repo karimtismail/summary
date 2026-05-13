@@ -71,29 +71,74 @@ Leaks usually appear under load because rare error paths skip release.
 ## Code example
 
 ```java
-protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
-    if (in.readableBytes() < 4) {
-        return;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.DefaultByteBufHolder;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.ByteToMessageDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+public final class LengthPrefixedFrameDecoder extends ByteToMessageDecoder {
+    private static final int HEADER_BYTES = 4;
+    private static final int MAX_FRAME_BYTES = 1 << 20;
+
+    @Override
+    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+        if (in.readableBytes() < HEADER_BYTES) {
+            return;
+        }
+
+        int length = in.getInt(in.readerIndex());
+        if (length < 0 || length > MAX_FRAME_BYTES) {
+            ctx.close();
+            return;
+        }
+        if (in.readableBytes() < HEADER_BYTES + length) {
+            return;
+        }
+
+        in.skipBytes(HEADER_BYTES);
+        ByteBuf payload = in.readRetainedSlice(length);
+
+        try {
+            out.add(new Frame(payload));
+        } catch (Throwable error) {
+            payload.release();
+            throw error;
+        }
+    }
+}
+
+final class Frame extends DefaultByteBufHolder {
+    public Frame(ByteBuf content) {
+        super(content);
     }
 
-    int length = in.getInt(in.readerIndex());
-    if (in.readableBytes() < 4 + length) {
-        return;
+    @Override
+    public Frame replace(ByteBuf content) {
+        return new Frame(content);
     }
 
-    in.skipBytes(4);
-    ByteBuf frame = in.readRetainedSlice(length);
+    public String utf8Body() {
+        return content().toString(StandardCharsets.UTF_8);
+    }
+}
 
-    try {
-        out.add(new Frame(frame));
-    } catch (Throwable error) {
-        frame.release();
-        throw error;
+final class FrameConsumer extends SimpleChannelInboundHandler<Frame> {
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, Frame frame) {
+        String body = frame.utf8Body();
+        ctx.writeAndFlush("received " + body);
     }
 }
 ```
 
-`readRetainedSlice` makes the next object own a reference to the frame bytes. That object now needs a release path when the frame is consumed.
+`readRetainedSlice` gives the emitted `Frame` its own reference. `Frame` extends `DefaultByteBufHolder`, so downstream handlers and Netty utilities can treat it as a reference-counted message. `FrameConsumer` consumes it with `SimpleChannelInboundHandler`, which releases the frame after `channelRead0` returns.
+
+<Warning title="Complete ownership or complete copy">
+If a frame will be stored in a queue, retried later, or passed to code that does not understand Netty reference counting, choose deliberately: retain and release on every path, or copy into independent memory. Ambiguous ownership is the leak.
+</Warning>
 
 <RecallPrompt question="which operation changes ownership: `slice`, `retainedSlice`, or `copy`?">
 `slice` shares memory without taking a new reference. `retainedSlice` shares memory and takes a reference that must be released. `copy` creates independent memory with a separate lifetime.

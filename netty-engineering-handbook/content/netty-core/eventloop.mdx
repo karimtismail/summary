@@ -78,17 +78,60 @@ That cycle is why the central rule is simple: **do not block the EventLoop**.
 ## Code example
 
 ```java
-public void channelRead(ChannelHandlerContext ctx, Object msg) {
-    EventLoop eventLoop = ctx.channel().eventLoop();
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
-    eventLoop.execute(() -> {
-        // Runs later on the same EventLoop, preserving this channel's ordering.
-        ctx.writeAndFlush(msg);
-    });
+public final class AccountLookupHandler extends SimpleChannelInboundHandler<AccountRequest> {
+    private final Executor blockingExecutor;
+    private final AccountClient accountClient;
+
+    public AccountLookupHandler(Executor blockingExecutor, AccountClient accountClient) {
+        this.blockingExecutor = blockingExecutor;
+        this.accountClient = accountClient;
+    }
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, AccountRequest request) {
+        CompletableFuture
+            .supplyAsync(() -> accountClient.load(request.accountId()), blockingExecutor)
+            .whenComplete((account, error) -> ctx.executor().execute(() -> {
+                if (!ctx.channel().isActive()) {
+                    return;
+                }
+                if (error != null) {
+                    ctx.fireExceptionCaught(error);
+                    return;
+                }
+                ctx.writeAndFlush(new AccountResponse(account.id(), account.name()));
+            }));
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        ctx.close();
+    }
+}
+
+record AccountRequest(String accountId) {}
+record Account(String id, String name) {}
+record AccountResponse(String id, String name) {}
+
+interface AccountClient {
+    Account load(String accountId);
 }
 ```
 
-That handoff is safe for channel ordering, but it is not a license to do slow work. If the task can block, put the slow part on a separate executor and schedule only the final channel write back onto the EventLoop.
+The slow lookup runs on a bounded executor. The final channel operation returns to `ctx.executor()`, which is the channel's EventLoop. That keeps Netty's ordering rule intact without parking the IO lane.
+
+<Warning title="Do not smuggle ByteBuf ownership across threads">
+If the inbound message contains a reference-counted `ByteBuf`, copy or retain the bytes intentionally before offloading. `SimpleChannelInboundHandler` can auto-release consumed messages after `channelRead0` returns, so a background task must not keep an unowned buffer reference.
+</Warning>
+
+<Highlight title="Version note">
+Recent Netty documentation may show newer bootstrap APIs such as `MultiThreadIoEventLoopGroup` with a transport-specific IO handler factory. Constructor names can evolve; the durable rule is the same: channel callbacks run on EventLoop lanes, and blocking those lanes delays unrelated channels.
+</Highlight>
 
 <RecallPrompt question="what else is delayed when a handler blocks the EventLoop?">
 Every channel assigned to that same EventLoop can wait behind the blocked callback: reads, writes, timeouts, listeners, and tasks queued from other threads.

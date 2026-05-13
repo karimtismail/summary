@@ -46,11 +46,17 @@ Another step | Concrete detail.
 
 ## Code example
 
+Prefer complete examples over isolated fragments when the concept has ownership, threading, lifecycle, or configuration risk.
+
 ```java
 // Prefer a complete class with imports and a main method when the concept is executable.
 ```
 
-Explain how to run the code, what output to expect, and which lines map back to the story.
+Explain how to run the code, what output to expect, which lines map back to the story, and what the example deliberately does not cover.
+
+<Warning title="Validate the hidden contract">
+Before publishing this section, check the current library/runtime docs for method names, lifecycle behavior, ownership rules, and deprecated APIs. Do not teach an old API as the default path when the platform has moved.
+</Warning>
 
 <RecallPrompt question="one concrete recall question?">
 Provide the answer or expected reasoning here so the block can be used for self-checking.
@@ -58,11 +64,11 @@ Provide the answer or expected reasoning here so the block can be used for self-
 
 ## Production implications
 
-Explain where this concept helps in real projects and what operational signals prove it is working.
+Explain where this concept helps in real projects and what operational signals prove it is working. Include the failure mode, the debug signal, the rollout risk, the security or resource boundary, and when this is the wrong tool.
 
 ## Performance implications
 
-Name the price you pay: memory, threads, queueing, syscall cost, coordination, serialization, or mental overhead. Avoid generic tuning advice.
+Name the price you pay: memory, threads, queueing, syscall cost, coordination, serialization, or mental overhead. Say what to measure before tuning, and call out queue growth, allocation, ownership, and backpressure where relevant. Avoid generic tuning advice.
 
 ## Common bugs
 
