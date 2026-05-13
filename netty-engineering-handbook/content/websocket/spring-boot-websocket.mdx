@@ -53,6 +53,8 @@ Deliver | Subscribers receive frames.
 
 ## Code example
 
+The runnable lab in `examples/systems-lab` exposes a STOMP endpoint at `/ws` and routes messages from `/app/notify` to `/topic/notifications`. Use that lab when you want to see the difference between opening a socket and owning a messaging contract.
+
 ```java
 @Configuration
 @EnableWebSocketMessageBroker

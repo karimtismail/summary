@@ -75,6 +75,16 @@ Every project should force one runtime boundary into the open.
 
 ## Code example
 
+The repository includes a runnable Spring Boot lab at `examples/systems-lab`. It is intentionally small: one service, four production-style integrations, and commands that let you prove the behavior instead of only reading about it.
+
+```bash
+cd examples/systems-lab
+mvn -q -DskipTests package
+docker compose up --build
+```
+
+After it starts, use the endpoints in the lab README to send a Kafka order event, read a Redis-backed product, seed MongoDB data, inspect an explain plan, and open the WebSocket/STOMP notification path. Treat it as the shared practice bench for the Kafka, Redis, MongoDB, Docker, and WebSocket tracks.
+
 ```text
 Project brief: evidence-first Redis cache
 

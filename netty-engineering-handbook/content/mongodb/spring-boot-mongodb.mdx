@@ -54,9 +54,20 @@ Return | Documents map back to Java objects.
 
 ## Code example
 
-```properties
-spring.data.mongodb.uri=mongodb://localhost:27017/shop
+The runnable lab in `examples/systems-lab` includes MongoDB seed, query, and explain endpoints:
+
+```bash
+curl -X POST http://localhost:8080/mongo/products/seed
+curl "http://localhost:8080/mongo/products/explain?tenantId=tenant-a&category=books"
 ```
+
+Use the explain output to connect the Java query to the database execution plan.
+
+```properties
+spring.mongodb.uri=mongodb://localhost:27017/shop
+```
+
+In Spring Boot 4, keep the current MongoDB namespace as `spring.mongodb.*`. Older `spring.data.mongodb.*` examples still appear online, but using the current property name makes container configuration easier to review.
 
 ```java
 @Document("orders")

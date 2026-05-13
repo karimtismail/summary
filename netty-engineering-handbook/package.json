@@ -16,6 +16,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "content:check": "node scripts/content-contract.mjs",
     "study:check": "node --experimental-strip-types scripts/study-contract.mjs",
+    "examples:check": "node scripts/examples-contract.mjs",
+    "examples:compile": "mvn -q -f examples/systems-lab/pom.xml -DskipTests package",
     "security:content": "node scripts/security-content-scan.mjs",
     "visual:qa": "node scripts/visual-qa.mjs",
     "visual:sections": "node scripts/visual-section-qa.mjs"

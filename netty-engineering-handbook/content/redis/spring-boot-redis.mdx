@@ -56,6 +56,14 @@ Store | Result is serialized and saved.
 
 ## Code example
 
+The runnable lab in `examples/systems-lab` includes a Redis cache-aside endpoint:
+
+```bash
+curl http://localhost:8080/redis/products/p-100
+```
+
+Call it twice and compare the response metadata. The first request should explain a source load; the second should prove the cache path.
+
 ```java
 @Cacheable(cacheNames = "products", key = "#id")
 public ProductDto getProduct(String id) {

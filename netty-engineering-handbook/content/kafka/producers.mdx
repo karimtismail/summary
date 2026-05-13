@@ -38,6 +38,14 @@ In Kafka 4.2, `acks=all`, `enable.idempotence=true`, and `linger.ms=5` are defau
 
 ## Code example
 
+The runnable lab in `examples/systems-lab` includes a Spring Boot Kafka producer endpoint:
+
+```bash
+curl -X POST http://localhost:8080/kafka/orders/order-101
+```
+
+Use it to connect this chapter to a real send path: controller -> `KafkaTemplate` -> topic partition -> listener evidence.
+
 ```java
 Properties props = new Properties();
 props.put("bootstrap.servers", "localhost:9092");

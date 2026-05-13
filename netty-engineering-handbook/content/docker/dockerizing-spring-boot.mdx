@@ -56,6 +56,15 @@ Observe | Logs and health reveal readiness.
 
 ## Code example
 
+The runnable lab in `examples/systems-lab` has a full Compose stack for Spring Boot, Kafka, Redis, and MongoDB:
+
+```bash
+cd examples/systems-lab
+docker compose up --build
+```
+
+That command is the fastest way to practice the container lesson from this chapter: inside Compose, dependencies are reached by service name, not by `localhost`.
+
 ```dockerfile
 FROM eclipse-temurin:21-jre
 WORKDIR /app
