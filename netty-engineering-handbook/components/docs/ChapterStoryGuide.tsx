@@ -1,4 +1,4 @@
-import { AlertTriangle, GitBranch, Play, ScrollText } from "lucide-react";
+import { ArrowRight, GitBranch, Play, ScrollText } from "lucide-react";
 import type { ChapterCheatSheet } from "@/lib/handbook";
 import { getChapterStoryGuide } from "@/lib/storyGuides";
 
@@ -19,12 +19,12 @@ export function ChapterStoryGuide({
 
   return (
     <section className="mb-8 border-y border-border py-5 sm:py-6" aria-label="Story reading guide">
-      <div className="mb-5 flex items-start gap-3">
+      <div className="mb-4 flex items-start gap-3">
         <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-accent/35 bg-accent/10 text-accent">
           <ScrollText className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-text">Read it as one story</p>
+          <p className="text-sm font-semibold text-text">Story map</p>
           <p dir="rtl" lang="ar" className="mt-1 text-sm leading-7 text-muted">
             {guide.arabic}
           </p>
@@ -43,31 +43,40 @@ export function ChapterStoryGuide({
         ))}
       </ol>
 
-      <div className="mt-5 rounded-lg border border-border bg-panel shadow-inset">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
+        <a
+          href="#intuition"
+          className="inline-flex items-center gap-2 rounded-md border border-accent/35 bg-accent/10 px-3 py-2 text-sm font-semibold text-text transition hover:border-accent/60 hover:bg-accent/15"
+        >
+          Start reading
+          <ArrowRight className="h-4 w-4" />
+        </a>
+        <a
+          href="#code-example"
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-panel px-3 py-2 text-sm font-semibold text-muted transition hover:border-accent-secondary/50 hover:text-text"
+        >
+          Practice section
+        </a>
+      </div>
+
+      <details className="mt-4 rounded-lg border border-border bg-panel shadow-inset">
+        <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-3 transition hover:bg-card/50 sm:flex-row sm:items-start sm:justify-between">
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 text-sm font-semibold text-text">
               <Play className="h-4 w-4 text-accent-secondary" />
-              <p className="text-sm font-semibold text-text">{guide.practice.title}</p>
-            </div>
-            <p className="mt-1 text-xs leading-5 text-muted">{guide.practice.note}</p>
-          </div>
+              {guide.practice.title}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-muted">{guide.practice.note}</span>
+          </span>
           <span className="inline-flex w-fit shrink-0 items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted">
             <GitBranch className="h-3 w-3" />
             {guide.practice.language}
           </span>
-        </div>
-        <pre className="m-0 overflow-x-auto bg-[#0d1017] p-4 text-sm leading-7 text-[#d8dee9]">
+        </summary>
+        <pre className="m-0 overflow-x-auto border-t border-border bg-[#0d1017] p-4 text-sm leading-7 text-[#d8dee9]">
           <code>{guide.practice.code}</code>
         </pre>
-      </div>
-
-      <div className="mt-4 flex items-start gap-2 rounded-md border border-warning/35 bg-warning/10 px-3 py-2">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-        <p className="m-0 text-sm leading-6 text-muted">
-          The detailed sections below still matter, but read them as evidence for this story instead of separate boxes to memorize.
-        </p>
-      </div>
+      </details>
     </section>
   );
 }

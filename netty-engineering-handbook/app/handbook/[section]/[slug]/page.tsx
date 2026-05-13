@@ -71,13 +71,6 @@ export default async function ChapterPage({ params }: PageProps) {
           chapterSlug={slug}
           sectionTitle={chapter.sectionTitle}
         />
-        <ChapterStoryGuide
-          title={chapterSource.frontmatter.title ?? chapter.title}
-          description={chapterSource.frontmatter.description ?? chapter.description}
-          sectionSlug={section}
-          chapterSlug={slug}
-          sheet={chapterSource.cheatSheet}
-        />
         <ReadingTools title={chapterSource.frontmatter.title ?? chapter.title} mentalModel={chapterSource.cheatSheet.mentalModel} terms={prerequisites} />
         <PrerequisitePanel
           items={prerequisites}
@@ -87,6 +80,13 @@ export default async function ChapterPage({ params }: PageProps) {
               ? `This chapter appears in the ${studyTrack.shortTitle} study path. If any term below feels fuzzy, read the short explanation here, then continue.`
               : "If any term below feels fuzzy, read the short explanation here, then continue."
             }
+        />
+        <ChapterStoryGuide
+          title={chapterSource.frontmatter.title ?? chapter.title}
+          description={chapterSource.frontmatter.description ?? chapter.description}
+          sectionSlug={section}
+          chapterSlug={slug}
+          sheet={chapterSource.cheatSheet}
         />
         <div className="mb-8 rounded-xl border border-border bg-panel p-4 shadow-inset xl:hidden" data-mobile-toc="true">
           <TableOfContents headings={chapterSource.headings} />
