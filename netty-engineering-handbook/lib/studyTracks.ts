@@ -767,6 +767,11 @@ export function getStudyTrack(slug: string) {
   return studyTracks.find((track) => track.slug === slug);
 }
 
+export function withStudyPath(href: string, trackSlug: string) {
+  const separator = href.includes("?") ? "&" : "?";
+  return `${href}${separator}path=${encodeURIComponent(trackSlug)}`;
+}
+
 export function getStudyTrackForChapter(section: string, slug: string) {
   return studyTracks.find((track) => track.steps.some((step) => step.section === section && step.slug === slug));
 }

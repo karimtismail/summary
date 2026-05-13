@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2, Circle, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { StudyLabCard } from "@/components/docs/StudyLabCard";
 import type { PracticeLab } from "@/lib/practiceLabs";
-import type { StudyPhase } from "@/lib/studyTracks";
+import { withStudyPath, type StudyPhase } from "@/lib/studyTracks";
 import { safeGetStorageItem, safeSetStorageItem } from "@/lib/safeStorage";
 import { cn } from "@/lib/utils";
 
@@ -196,7 +196,7 @@ export function StudyProgress({ trackSlug, steps, labs = [], phases }: { trackSl
                           {done ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
                         </button>
                         <Link
-                          href={step.href}
+                          href={withStudyPath(step.href, trackSlug)}
                           className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                         >
                           <span className="min-w-0">

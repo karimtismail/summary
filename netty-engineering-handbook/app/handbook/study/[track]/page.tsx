@@ -8,7 +8,7 @@ import { StudyMethod } from "@/components/docs/StudyMethod";
 import { StudyProgress, type StudyProgressStep } from "@/components/docs/StudyProgress";
 import { findChapter } from "@/lib/navigation";
 import { getPracticeLabs } from "@/lib/practiceLabs";
-import { getStudyTrack, studyTracks } from "@/lib/studyTracks";
+import { getStudyTrack, studyTracks, withStudyPath } from "@/lib/studyTracks";
 
 type PageProps = {
   params: Promise<{ track: string }>;
@@ -179,7 +179,7 @@ export default async function StudyTrackPage({ params }: PageProps) {
               </div>
             </div>
             <Link
-              href={track.startHref}
+              href={withStudyPath(track.startHref, track.slug)}
               className="inline-flex w-fit shrink-0 items-center gap-2 rounded-md border border-accent/45 bg-card px-3 py-2 text-sm font-semibold text-accent transition hover:bg-accent hover:text-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Start lesson 1

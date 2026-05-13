@@ -1,107 +1,135 @@
 ---
 title: Real Projects
-description: Practice projects that force real understanding of runtime behavior, event-driven design, and protocol boundaries.
+description: Practice projects that turn Netty, Kafka, MongoDB, Redis, Docker, and WebSocket reading into observable engineering skill.
 ---
 
-<StoryBlock title="Understanding Needs A Runtime">
-You do not really understand Netty by reading APIs. You understand it by building something that fails until the mental model is correct.
+<StoryBlock title="Understanding Needs Evidence">
+You do not really understand a system when the happy path works once. You understand it when you can break it, observe the failure, explain the runtime story, and then make a narrow fix.
 </StoryBlock>
 
 ## Intuition
 
-Practice should follow the same learning flow as the handbook: blocking IO, selectors, EventLoops, pipelines, framing, backpressure, and production debugging.
+A good project is not a big app. It is a small system with one sharp lesson: bytes can split, consumers can lag, indexes can miss, cache keys can go stale, containers can exit, and WebSocket connections can live on the wrong server.
+
+The project should make the hidden part visible.
 
 ## Real-world problem
 
-Tutorial projects often stop at echo servers. Echo servers teach connection setup, but they do not teach partial frames, slow clients, memory ownership, protocol evolution, or operational pressure.
+Most tutorial projects stop too early. They prove that an API can be called, but not that you understand what happens under pressure.
+
+That is why a portfolio of small failure-driven projects teaches more than one large demo. Each project should answer four questions:
+
+- What runtime rule am I proving?
+- What failure will expose the rule?
+- What evidence will I capture?
+- What design change will I defend after seeing the evidence?
 
 ## Mental model
 
-Choose projects that force a specific runtime lesson. Keep the feature small and the behavior sharp.
+Pick the project by the failure you need to understand.
 
-Do not ask "what can I build?" first. Ask "what failure do I need to understand?" Then build the smallest system that makes that failure observable.
+If you are studying Netty, build a framed protocol and break message boundaries. If you are studying Kafka, build replay and lag drills. If you are studying MongoDB, prove an index or transaction boundary. If you are studying Redis, create a hot-key expiry. If you are studying Docker, debug a container as a process. If you are studying WebSocket, scale past one server.
+
+<Warning title="A project without failure is a demo">
+If the project does not include malformed input, slow consumers, restart, overload, stale data, bad configuration, or observability, it will make the happy path familiar and leave the production lesson missing.
+</Warning>
 
 ## Visual explanation
 
-<FlowDiagram title="Project progression">
-Blocking chat -> NIO reactor -> Netty framed protocol -> Backpressured broadcast -> Production diagnostics
+<FlowDiagram title="Project learning loop">
+Build -> Break -> Observe -> Explain -> Harden -> Repeat
 </FlowDiagram>
 
-<ArchitectureDiagram title="Project ladder">
-Level 1: Blocking echo
-  proves: socket basics, thread-per-connection pain
+<ArchitectureDiagram title="Study-track project ladder">
+Netty:
+  framed echo -> slow handler -> backpressured broadcast
 
-Level 2: Selector reactor
-  proves: readiness, partial reads, state machines
+Kafka:
+  keyed producer -> replayable consumer -> lag and rebalance drill
 
-Level 3: Netty framed protocol
-  proves: EventLoop, pipeline, decoder, encoder, ByteBuf ownership
+MongoDB:
+  access-pattern model -> explain plan -> transaction boundary
 
-Level 4: Broadcast with slow clients
-  proves: writability, backpressure, bounded queues
+Redis:
+  cache-aside -> hot-key expiry -> stream recovery
 
-Level 5: Observable service
-  proves: metrics, logs, failure injection, runbook thinking
+Docker:
+  image build -> compose stack -> failing container runbook
+
+WebSocket:
+  raw connection -> STOMP notification -> two-instance fanout
 </ArchitectureDiagram>
 
 ## Runtime behavior
 
-Each project should include fault injection: partial writes, slow consumers, malformed frames, reconnect storms, large payloads, and downstream delay. The failure is the teacher.
+Every project should force one runtime boundary into the open.
 
-<RuntimeTrace title="A project review loop">
-Build | Implement the smallest behavior that exposes one runtime rule.
-Break | Add a failure case that should stress the rule.
-Observe | Capture metrics, logs, thread names, memory, and protocol phase.
-Explain | Write the failure story before fixing it.
-Harden | Add bounds, tests, and a runbook note.
-</RuntimeTrace>
+| Track | Runtime boundary to expose | Failure to inject | Evidence to keep |
+| --- | --- | --- | --- |
+| Netty | TCP bytes becoming application messages | sticky packets, split frames, slow handler | decoder logs, EventLoop thread names, latency |
+| Kafka | records moving through partitions and offsets | slow consumer, rebalance, replay | lag per partition, assignments, offset reset output |
+| MongoDB | query shape meeting index shape | unsupported sort, wrong index order, half-failed workflow | explain plan, documents examined, invariant failure |
+| Redis | cache and memory pressure | hot-key expiry, stampede, unacked stream message | hit rate, source-call count, pending entries |
+| Docker | image artifact becoming one process | missing env var, wrong command, bad dependency | exit code, logs, image history, inspect output |
+| WebSocket | persistent connection ownership | malformed message, server kill, two-instance broadcast | 101 handshake, close code, delivery matrix |
 
 ## Code example
 
 ```text
-Project: backpressured room broadcast
+Project brief: evidence-first Redis cache
 
-Requirement:
-  When one client stops reading, other clients must keep receiving messages.
-  Memory must remain bounded.
-  The slow client must be paused, downgraded, or closed by policy.
+Build:
+  1. read product by key from Redis
+  2. load from source on miss
+  3. write with TTL and small jitter
+  4. expose hit, miss, source-call count, and latency
 
-Failure injection:
-  - one client reads one byte per second
-  - one client sends malformed length-prefixed frames
-  - one client reconnects every 100 ms
-  - one producer sends a burst larger than the per-channel queue limit
+Break:
+  1. expire one hot key under concurrent traffic
+  2. slow the source call
+  3. remove the stampede guard
 
-Evidence:
-  - channel writability changes
-  - per-client queued messages
-  - EventLoop delay
-  - close reason
-  - p95 and p99 delivery latency for healthy clients
+Observe:
+  1. source calls before and after the guard
+  2. p95 latency during refill
+  3. stale-read behavior when the source is slow
+
+Explain:
+  A cache miss can amplify traffic. The fix is not only "add Redis";
+  the fix is a controlled refill policy with bounded waiting or stale data.
 ```
 
-This requirement teaches more than another happy-path endpoint.
-
-<Warning title="A project without failure is a demo">
-If the project does not include a slow client, malformed input, restart, overload, or observability requirement, it will make the happy path familiar but leave the production lesson missing.
-</Warning>
+Use this same shape for every track. The language changes, but the engineering loop stays the same.
 
 ## Production implications
 
-Turn projects into runbooks. For each one, record metrics, failure modes, expected logs, and a debugging path.
+Turn each project into a small runbook:
+
+- symptoms you expect to see
+- metrics and logs you need first
+- commands or dashboards that prove the state
+- one safe mitigation
+- one deeper fix
+- one anti-pattern you will avoid next time
+
+This matters because production incidents punish vague understanding. A runbook forces the project to become operational knowledge.
 
 ## Performance implications
 
-Benchmark only after correctness is stable. Then measure allocation rate, EventLoop delay, write buffer growth, and p99 latency under controlled pressure.
+Benchmark only after correctness and bounds exist. Performance measurements without failure cases usually reward the wrong thing.
+
+For Netty and WebSocket, watch latency distribution, write queues, EventLoop delay, and memory. For Kafka, watch producer errors, broker latency, lag, and rebalance frequency. For MongoDB, watch documents examined, index usage, lock or write pressure, and slow queries. For Redis, watch command latency, hit rate, memory, evictions, and source-call amplification. For Docker, watch startup time, image size, health checks, CPU, memory, and network assumptions.
 
 ## Common bugs
 
 - building only happy paths
 - skipping malformed input tests
-- ignoring slow readers
-- benchmarking before adding bounds
-- treating generated load as realistic traffic
+- treating "it ran once" as proof
+- collecting logs without deciding what question they answer
+- adding scale before understanding the single-node failure
+- benchmarking before adding bounds and observability
+- writing a project README that explains features but not failures
 
 ## Summary
 
-Real projects should make the invisible runtime visible. Build small systems that force you to reason about bytes, queues, threads, and failure.
+Real projects should make runtime behavior visible. Build small systems that force you to reason about bytes, queues, partitions, indexes, caches, processes, connections, and failure.

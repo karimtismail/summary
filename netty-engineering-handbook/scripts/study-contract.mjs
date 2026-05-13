@@ -63,6 +63,9 @@ for (const track of studyTracks) {
   const labs = getPracticeLabs(track.slug);
   const labIds = labs.map((lab) => lab.id);
   const labIdSet = new Set(labIds);
+  const stepIndexById = new Map(stepIds.map((id, index) => [id, index]));
+  assert(labs.length >= 3, `${track.slug}: expected at least three practice labs`);
+  assert(labs.some((lab) => lab.difficulty === "Production"), `${track.slug}: expected at least one production-difficulty practice lab`);
   assert(labIdSet.size === labIds.length, `${track.slug}: duplicate practice lab id`);
 
   const stepPhaseById = new Map(track.steps.map((step) => [stepId(step), step.phase]));
@@ -71,11 +74,18 @@ for (const track of studyTracks) {
     assert(stepIdSet.has(lab.afterStepId), `${track.slug}: lab ${lab.id} references missing afterStepId ${lab.afterStepId}`);
     assert(stepPhaseById.get(lab.afterStepId) === lab.phase, `${track.slug}: lab ${lab.id} unlock phase does not match lab phase`);
     assert(Number.isInteger(lab.estimatedMinutes) && lab.estimatedMinutes > 0, `${track.slug}: lab ${lab.id} needs a positive estimatedMinutes`);
+    assert(lab.coveredStepIds.length > 0, `${track.slug}: lab ${lab.id} needs coveredStepIds`);
     assert(lab.build.length > 0 && lab.breakIt.length > 0 && lab.observe.length > 0, `${track.slug}: lab ${lab.id} needs build, break, and observe steps`);
     assert(Boolean(lab.deliverable && lab.evidence), `${track.slug}: lab ${lab.id} needs deliverable and evidence`);
 
     for (const coveredStepId of lab.coveredStepIds) {
       assert(stepIdSet.has(coveredStepId), `${track.slug}: lab ${lab.id} references missing covered step ${coveredStepId}`);
+      if (stepIdSet.has(coveredStepId)) {
+        assert(
+          stepIndexById.get(coveredStepId) <= stepIndexById.get(lab.afterStepId),
+          `${track.slug}: lab ${lab.id} covers future step ${coveredStepId}`
+        );
+      }
     }
   }
 }
