@@ -34,7 +34,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          className="h-10 w-full rounded-md border border-border bg-panel pl-9 pr-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-accent/60"
+          className="h-10 w-full rounded-md border border-border bg-panel pl-9 pr-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           placeholder="Search topics"
           type="search"
           suppressHydrationWarning

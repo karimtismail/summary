@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Compass } from "lucide-react";
-import { PracticeLabs } from "@/components/docs/PracticeLabs";
 import { PrerequisitePanel } from "@/components/docs/PrerequisitePanel";
 import { Sidebar } from "@/components/docs/Sidebar";
 import { StudyMethod } from "@/components/docs/StudyMethod";
@@ -37,10 +36,14 @@ export default async function StudyTrackPage({ params }: PageProps) {
 
   const progressSteps: StudyProgressStep[] = track.steps.map((step, index) => {
     const chapter = findChapter(step.section, step.slug);
+    if (!chapter) {
+      throw new Error(`Study track "${track.slug}" references missing chapter "${step.section}/${step.slug}".`);
+    }
+
     return {
       id: `${step.section}/${step.slug}`,
       href: `/handbook/${step.section}/${step.slug}`,
-      title: chapter?.title ?? step.slug,
+      title: chapter.title,
       phase: step.phase,
       reason: step.reason,
       checkpoint: step.checkpoint,
@@ -49,6 +52,22 @@ export default async function StudyTrackPage({ params }: PageProps) {
     };
   });
   const labs = getPracticeLabs(track.slug);
+  const trackStepIds = new Set(progressSteps.map((step) => step.id));
+  const trackPhases = new Set(progressSteps.map((step) => step.phase));
+
+  for (const lab of labs) {
+    if (!trackPhases.has(lab.phase)) {
+      throw new Error(`Practice lab "${lab.id}" references missing phase "${lab.phase}" in study track "${track.slug}".`);
+    }
+    if (!trackStepIds.has(lab.afterStepId)) {
+      throw new Error(`Practice lab "${lab.id}" references missing unlock step "${lab.afterStepId}" in study track "${track.slug}".`);
+    }
+    for (const coveredStepId of lab.coveredStepIds) {
+      if (!trackStepIds.has(coveredStepId)) {
+        throw new Error(`Practice lab "${lab.id}" references missing covered step "${coveredStepId}" in study track "${track.slug}".`);
+      }
+    }
+  }
 
   return (
     <main className="mx-auto grid max-w-[1360px] gap-8 px-4 py-7 sm:px-6 sm:py-10 lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-9 lg:px-8">
@@ -60,13 +79,21 @@ export default async function StudyTrackPage({ params }: PageProps) {
 
       <article id="main-content" className="min-w-0">
         <section className="rounded-xl border border-border bg-panel p-4 shadow-inset sm:p-6">
-          <div className="mb-5 flex flex-wrap items-center gap-2 text-sm text-muted">
-            <Link href="/handbook" className="transition hover:text-text">
-              Handbook
-            </Link>
-            <span>/</span>
-            <span>{track.title}</span>
-          </div>
+          <nav className="mb-5 text-sm text-muted" aria-label="Breadcrumb">
+            <ol className="m-0 flex list-none flex-wrap items-center gap-2 p-0">
+              <li className="m-0">
+                <Link href="/handbook" className="transition hover:text-text">
+                  Handbook
+                </Link>
+              </li>
+              <li className="m-0" aria-hidden="true">
+                /
+              </li>
+              <li className="m-0 text-muted" aria-current="page">
+                {track.title}
+              </li>
+            </ol>
+          </nav>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
             <div>
@@ -134,10 +161,8 @@ export default async function StudyTrackPage({ params }: PageProps) {
             </Link>
           </div>
 
-          <StudyProgress trackSlug={track.slug} steps={progressSteps} />
+          <StudyProgress trackSlug={track.slug} steps={progressSteps} labs={labs} />
         </section>
-
-        <PracticeLabs labs={labs} />
 
         <section className="mt-8 rounded-xl border border-warning/35 bg-warning/10 p-4 shadow-inset sm:p-5">
           <h2 className="text-lg font-semibold text-text">When you feel lost</h2>
