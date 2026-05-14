@@ -1,20 +1,22 @@
 ---
-title: WebSocket
-description: WebSocket upgrades HTTP into a full-duplex message channel with its own framing and lifecycle.
+title: WebSocket Overview
+description: A bridge from HTTP protocol thinking to the dedicated WebSocket track.
 ---
 
-<StoryBlock title="After The Upgrade, The Shape Changes">
-WebSocket starts as HTTP, then becomes a long-lived bidirectional message stream.
+<StoryBlock title="The Bridge Out Of Request-Response">
+WebSocket belongs in protocol engineering because it changes the shape of an HTTP connection. The dedicated WebSocket track goes deeper; this chapter gives the map.
 </StoryBlock>
 
 ## Intuition
 
 WebSocket is useful when both client and server need to send messages independently over one connection. It is common for collaboration, telemetry, market data, games, and live control planes.
 
+At this level, the main idea is the protocol transition: an HTTP request asks for an upgrade, the server accepts or rejects it, and accepted connections stop behaving like short request-response exchanges.
+
 <Misconception
   soundsLike="WebSocket is just HTTP that stays open."
-  actually="WebSocket starts with HTTP upgrade, then becomes a long-lived framed connection with independent lifecycle, heartbeat, ownership, and backpressure concerns."
-  whyItMatters="Treating it like ordinary request-response code misses slow clients, stale sessions, fanout pressure, and cleanup on close."
+  actually="WebSocket starts with HTTP upgrade, then switches to a framed bidirectional protocol."
+  whyItMatters="After the switch, request handlers are no longer the right mental model; connection ownership becomes the design problem."
 />
 
 ## Real-world problem
@@ -28,112 +30,70 @@ WebSocket has two phases:
 - HTTP upgrade handshake
 - framed bidirectional messages
 
-After upgrade, connection lifecycle and backpressure become long-lived concerns.
-
-Think of a WebSocket server as a small connection registry plus a protocol state machine. The hard part is not receiving one text frame; it is deciding who owns each connection, what messages are allowed, and what happens when the client stops reading.
+Use this chapter as the bridge. For the detailed mechanics, continue to [Handshake and Upgrade](/handbook/websocket/handshake-upgrade), [Frames and Lifecycle](/handbook/websocket/frames-lifecycle), and [Server Design](/handbook/websocket/server-design).
 
 ## Visual explanation
 
 <TracePrompt>
-Trace connection ownership across the upgrade. After status 101, the core question is who owns the live channel and what policy applies when it slows, idles, or closes.
+Trace the protocol boundary. Before the upgrade, HTTP semantics dominate. After the upgrade, frames and connection ownership dominate.
 </TracePrompt>
 
-<FlowDiagram title="WebSocket lifecycle">
-HTTP request -> Upgrade handshake -> WebSocket frames -> Ping, pong, and close
+<FlowDiagram title="Protocol transition">
+HTTP request -> Upgrade validation -> 101 response -> WebSocket frame stream
 </FlowDiagram>
-
-<ArchitectureDiagram title="WebSocket production shape">
-client
-  -> HTTP upgrade
-  -> WebSocket protocol handler
-  -> auth/session binding
-  -> connection registry
-  -> message router
-  -> per-channel write policy
-  -> close and cleanup
-</ArchitectureDiagram>
 
 ## Runtime behavior
 
-Netty handles the upgrade with WebSocket protocol handlers. After that, your handlers receive frame types such as text, binary, ping, pong, and close.
+Netty handles the HTTP parsing and WebSocket upgrade with protocol handlers. After a successful upgrade, later handlers receive WebSocket frames instead of normal HTTP requests.
 
-<RuntimeTrace title="Connection lifecycle">
-Handshake | HTTP headers, path, origin, auth, and subprotocols are validated.
-Register | The accepted channel is attached to a user, tenant, room, or stream.
-Exchange | Text or binary frames move through application handlers.
-Heartbeat | Ping, pong, and idle detection separate dead peers from quiet peers.
-Pressure | Slow clients build outbound bytes and need pause, drop, or close policy.
-Close | Close frames and channel inactive events must release registry ownership.
+<RuntimeTrace title="Upgrade boundary">
+HTTP parse | The request path and headers are decoded as HTTP.
+Validate | The server checks upgrade headers, auth, origin, and path policy.
+Switch | A 101 response changes the protocol on the same connection.
+Frame stream | Text, binary, ping, pong, and close frames move through the pipeline.
+Delegate | Application-specific routing, heartbeat, and scaling belong to the WebSocket track.
 </RuntimeTrace>
 
 ## Code example
 
 ```java
-import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 
-public final class WebSocketPipeline {
-    public static void configure(ChannelPipeline pipeline) {
-pipeline.addLast(new HttpServerCodec());
-pipeline.addLast(new HttpObjectAggregator(8192));
-pipeline.addLast(new WebSocketServerProtocolHandler("/events"));
-        pipeline.addLast(new EventFrameHandler());
-    }
-}
-
-final class EventFrameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
-    @Override
-    protected void channelRead0(ChannelHandlerContext ctx, WebSocketFrame frame) {
-        if (frame instanceof TextWebSocketFrame text) {
-            if (!ctx.channel().isWritable()) {
-                ctx.close();
-                return;
-            }
-            ctx.writeAndFlush(new TextWebSocketFrame("ack:" + text.text()));
-            return;
-        }
-
-        ctx.fireChannelRead(frame.retain());
+public final class WebSocketProtocolBridge {
+    public static void configure(ChannelPipeline pipeline, ChannelHandler applicationFrameHandler) {
+        pipeline.addLast(new HttpServerCodec());
+        pipeline.addLast(new HttpObjectAggregator(8192));
+        pipeline.addLast(new WebSocketServerProtocolHandler("/events"));
+        pipeline.addLast(applicationFrameHandler);
     }
 }
 ```
 
-The HTTP codec is still needed for the handshake.
-
-<Warning title="Retain only because this handler forwards">
-`SimpleChannelInboundHandler` releases the frame it consumes after `channelRead0`. The example calls `retain()` before forwarding non-text frames so the next handler owns a valid reference. If this handler handled close, ping, and binary frames itself, it should not retain and forward them blindly.
-</Warning>
-
-<Highlight title="Compression and intermediaries">
-Production WebSocket stacks often add compression, proxy timeouts, load balancer idle settings, and origin checks. Test the deployed path, not only direct localhost connections.
-</Highlight>
+The HTTP codec is still needed for the handshake. The application frame handler is deliberately left abstract here because the dedicated WebSocket chapters own routing, heartbeat, backpressure, Spring support, scaling, and security.
 
 <RecallPrompt question="what changes after the WebSocket upgrade?">
-The connection stops being ordinary request-response HTTP and becomes a bidirectional framed channel that needs heartbeat, backpressure, registry cleanup, and close policy.
+The connection stops being ordinary request-response HTTP and becomes a bidirectional framed channel.
 </RecallPrompt>
 
 ## Production implications
 
-Plan for idle detection, heartbeat policy, authentication refresh, connection draining, and fanout pressure. A WebSocket server is a connection ownership system.
+Use the protocol overview to place the boundary correctly. Production details such as idle detection, heartbeat policy, authentication refresh, connection draining, fanout pressure, and registry cleanup are covered in the dedicated WebSocket section.
 
 ## Performance implications
 
-Long-lived connections change resource math. Memory per connection, write queue growth, and broadcast fanout matter more than request throughput alone.
+The important performance shift is that connection count and per-connection state matter alongside request throughput. Long-lived channels change capacity planning.
 
 ## Common bugs
 
-- not handling close frames
-- ignoring ping, pong, and idle timeouts
-- broadcasting faster than clients can receive
-- assuming a WebSocket message is a business transaction
-- skipping authentication after reconnects
+- treating post-upgrade frames like new HTTP requests
+- hiding auth, origin, and upgrade policy in ordinary route logic
+- forgetting that one accepted connection may live for hours
+- skipping the dedicated lifecycle and scaling design after the handshake works
 
 ## Summary
 
-WebSocket is powerful because it removes polling. It also makes connection lifecycle and backpressure central design problems.
+WebSocket is the point where HTTP request-response becomes a bidirectional frame stream. This overview teaches the boundary; the WebSocket track teaches the operational design.

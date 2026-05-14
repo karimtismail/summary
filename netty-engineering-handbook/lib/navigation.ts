@@ -64,8 +64,8 @@ export const sections: Section[] = [
     focus: "Runtime mechanics",
     icon: Cpu,
     chapters: [
-      { title: "Channels", slug: "channels", description: "Connection endpoints without stream-shaped assumptions." },
       { title: "Buffers", slug: "buffers", description: "The memory contract at the center of NIO." },
+      { title: "Channels", slug: "channels", description: "Connection endpoints without stream-shaped assumptions." },
       { title: "Selectors", slug: "selectors", description: "One thread watches many sockets." },
       { title: "Scatter Gather", slug: "scatter-gather", description: "Move structured messages without needless copies." },
       { title: "Zero Copy", slug: "zero-copy", description: "Avoid copying bytes through user space." }
@@ -81,10 +81,10 @@ export const sections: Section[] = [
     icon: Layers3,
     chapters: [
       { title: "EventLoop", slug: "eventloop", description: "The single-threaded execution lane for a channel." },
+      { title: "ByteBuf", slug: "bytebuf", description: "Reference-counted memory for high-throughput systems." },
       { title: "Futures", slug: "futures", description: "Async completion without blocking the EventLoop." },
       { title: "Pipeline", slug: "pipeline", description: "Inbound and outbound events as a protocol assembly line." },
       { title: "Handlers", slug: "handlers", description: "Reusable protocol behavior with sharp ownership rules." },
-      { title: "ByteBuf", slug: "bytebuf", description: "Reference-counted memory for high-throughput systems." },
       { title: "Netty in Spring Boot", slug: "spring-boot", description: "How WebFlux uses Reactor Netty and where the Netty rules still matter." }
     ]
   },
@@ -101,7 +101,7 @@ export const sections: Section[] = [
       { title: "Decoders", slug: "decoders", description: "Parsing partial input without corrupting state." },
       { title: "Encoders", slug: "encoders", description: "Writing protocols that stay compatible over time." },
       { title: "HTTP", slug: "http", description: "Request-response semantics on top of streams." },
-      { title: "WebSocket", slug: "websocket", description: "Full-duplex messages after an HTTP upgrade." }
+      { title: "WebSocket Overview", slug: "websocket", description: "A bridge from HTTP upgrade to the dedicated WebSocket track." }
     ]
   },
   {
@@ -170,10 +170,10 @@ export const sections: Section[] = [
     chapters: [
       { title: "Containers and Images", slug: "containers-images", description: "The difference between a runnable process and the image it starts from." },
       { title: "Dockerfiles and Layers", slug: "dockerfiles-layers", description: "How build instructions become cached image layers." },
-      { title: "Compose, Networks, and Volumes", slug: "compose-networking-volumes", description: "Run multi-service stacks without losing data or connectivity." },
       { title: "Build Cache and Multi-stage Builds", slug: "build-cache-multistage", description: "Make images smaller and builds faster without hiding complexity." },
+      { title: "Compose, Networks, and Volumes", slug: "compose-networking-volumes", description: "Run multi-service stacks without losing data or connectivity." },
       { title: "Dockerizing Spring Boot", slug: "dockerizing-spring-boot", description: "Package a Java service with predictable config, ports, and health checks." },
-      { title: "Production Debugging", slug: "production-debugging", description: "Inspect containers, logs, mounts, resources, and image assumptions." }
+      { title: "Docker Production Debugging", slug: "production-debugging", description: "Inspect containers, logs, mounts, resources, and image assumptions." }
     ]
   },
   {
