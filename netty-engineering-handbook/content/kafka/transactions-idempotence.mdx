@@ -11,6 +11,12 @@ Distributed systems retry. Retries create duplicate attempts. Kafka's advanced p
 
 Idempotence prevents duplicate records caused by producer retries within a producer session. Transactions let a consumer read input records, produce output records, and commit offsets as one atomic Kafka transaction.
 
+<Misconception
+  soundsLike="Turning on transactions makes the whole workflow exactly once."
+  actually="Kafka transactions make Kafka input offsets and Kafka output records atomic inside the transaction boundary. External side effects remain outside unless you design for them."
+  whyItMatters="A handler can avoid duplicate Kafka output but still duplicate a database write or external API call."
+/>
+
 ## Real-world problem
 
 A stream processor reads orders and writes invoices. It crashes after writing invoices but before committing input offsets. Without transactions, replay can write duplicate invoices to the output topic.
@@ -22,6 +28,10 @@ Idempotence protects producer retries. Transactions protect Kafka-to-Kafka proce
 They do not automatically make external side effects exactly once.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the transaction boundary. Include input offsets and output topics, then deliberately mark anything outside Kafka as a separate consistency problem.
+</TracePrompt>
 
 <FlowDiagram title="Transactional stream step">
 Read input -> Begin transaction -> Write output -> Send offsets to transaction -> Commit transaction
@@ -96,6 +106,10 @@ Consumers that depend on this output should set `isolation.level=read_committed`
 <Warning title="External writes are outside this transaction">
 This pattern protects Kafka input offsets and Kafka output records. If the same handler also writes to PostgreSQL, MongoDB, Redis, or an external API, that side effect needs its own idempotency or an outbox-style design.
 </Warning>
+
+<RecallPrompt question="why should downstream consumers use `read_committed`?">
+Without `read_committed`, consumers may observe records from transactions that later abort, which breaks the boundary the transactional producer was trying to provide.
+</RecallPrompt>
 
 ## Production implications
 

@@ -13,6 +13,12 @@ A queue usually means work is removed when one consumer receives it. Kafka keeps
 
 The first mental shift is from "send this message to a worker" to "record that this event happened."
 
+<Misconception
+  soundsLike="Kafka is just a faster queue."
+  actually="Kafka is a durable log where records remain for a retention window and each consumer group tracks its own offset."
+  whyItMatters="Queue thinking hides replay, multiple independent readers, retention risk, and the fact that consumers do not remove records by reading them."
+/>
+
 ## Real-world problem
 
 An order service emits events. Billing needs them now. Analytics wants them later. Fraud wants to replay yesterday after a model change. If the system is a simple destructive queue, each new use case becomes a new integration.
@@ -26,6 +32,10 @@ Kafka is an append-only commit log split across partitions. Producers append rec
 The log is the shared source. Consumers are independent cursors.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the event as history, not as a task handed to one worker. Watch the append offset and each consumer group's independent cursor.
+</TracePrompt>
 
 <ArchitectureDiagram title="Kafka as a shared log">
 producer
@@ -41,6 +51,15 @@ topic partition: [0][1][2][3][4][5][6]
 Records are appended to partitions. Each record gets an offset within its partition. Consumers fetch records and commit offsets to record progress.
 
 Kafka does not push records into application memory by default. Consumers pull batches, which makes throughput and backpressure easier to control.
+
+<RuntimeTrace title="One event in the log">
+Append | The producer writes a record to a partition leader.
+Assign offset | Kafka gives the record an offset within that partition.
+Retain | The record remains until retention or compaction policy removes it.
+Fetch | Each consumer group reads at its own pace.
+Commit | A consumer group records the next offset it plans to read.
+Replay | Resetting or using another group can read retained history again.
+</RuntimeTrace>
 
 ## Code example
 
@@ -59,6 +78,10 @@ producer.send(record, (metadata, error) -> {
 ```
 
 The producer appends an event. Consumers decide when and how to read it.
+
+<RecallPrompt question="why can several teams read the same Kafka event independently?">
+Kafka keeps the record in the partition log and stores progress per consumer group, so one reader's offset does not remove the event for another reader.
+</RecallPrompt>
 
 ## Production implications
 

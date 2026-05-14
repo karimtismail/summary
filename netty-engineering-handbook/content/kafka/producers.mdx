@@ -11,6 +11,12 @@ The producer is not just a client library. It batches, partitions, retries, comp
 
 Producing to Kafka is an async append workflow. The application creates a record, the producer assigns a partition, batches it with nearby records, sends it to the leader broker, and receives an acknowledgement.
 
+<Misconception
+  soundsLike="Calling `send` means the event is already safely in Kafka."
+  actually="`send` usually enqueues work in the producer. The durable outcome arrives later through metadata, callback, future completion, or an error path."
+  whyItMatters="Ignoring async failures or shutting down too early can lose events even though the application called the producer API."
+/>
+
 ## Real-world problem
 
 A checkout service sends one Kafka request per order event with no batching and weak acknowledgements. Latency looks simple in development, but production throughput is poor and failures lose records.
@@ -26,6 +32,10 @@ Producer behavior is shaped by four questions:
 
 ## Visual explanation
 
+<TracePrompt>
+Trace the record through the producer's queues before it reaches the broker. The dangerous moments are batching, retry, acknowledgement, and shutdown.
+</TracePrompt>
+
 <FlowDiagram title="Producer send path">
 Application event -> Partitioner -> Batch accumulator -> Broker leader -> Ack or retry
 </FlowDiagram>
@@ -35,6 +45,15 @@ Application event -> Partitioner -> Batch accumulator -> Broker leader -> Ack or
 The Kafka producer has background IO threads. `send` usually returns quickly with a future. Actual network writes happen asynchronously. Retries can reorder records if idempotence is disabled and multiple in-flight requests are allowed for the same connection.
 
 In Kafka 4.2, `acks=all`, `enable.idempotence=true`, and `linger.ms=5` are defaults when no conflicting producer settings disable them. The example keeps them explicit because correctness settings should be visible in code review.
+
+<RuntimeTrace title="Producer append lifecycle">
+Create | Application builds a record with topic, key, value, and headers.
+Partition | The producer chooses the partition that owns ordering for this key.
+Batch | Records wait briefly or until a batch is ready.
+Send | The IO thread sends the batch to the partition leader.
+Ack | Broker response confirms success or exposes retryable/non-retryable failure.
+Callback | Application code records success, handles error, or trips its own alert.
+</RuntimeTrace>
 
 ## Code example
 
@@ -62,6 +81,10 @@ KafkaProducer<String, String> producer = new KafkaProducer<>(
 ```
 
 These settings express a tradeoff between durability, throughput, latency, and duplicate behavior.
+
+<RecallPrompt question="why should producer callbacks be handled even when `send` returned?">
+The send call can succeed locally while the later broker write fails, times out, or is retried. The callback or future is where the durable outcome becomes visible.
+</RecallPrompt>
 
 ## Production implications
 

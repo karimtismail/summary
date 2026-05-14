@@ -13,6 +13,12 @@ Scatter reads fill multiple buffers from one channel operation. Gather writes dr
 
 The goal is not cleverness. The goal is fewer copies and cleaner ownership.
 
+<Misconception
+  soundsLike="Scatter-gather IO makes writes complete atomically because the buffers are passed together."
+  actually="Scatter-gather keeps buffers separate, but a non-blocking channel can still consume only part of the combined sequence."
+  whyItMatters="If you drop or mutate the buffer array after a partial write, the next bytes on the wire can be corrupt or missing."
+/>
+
 ## Real-world problem
 
 A server writes a fixed header and a large file-backed payload. Combining them into one array would copy bytes just to satisfy an API shape.
@@ -28,6 +34,10 @@ Header buffer, length buffer, payload buffer, and checksum buffer can remain dis
 The important discipline is position ownership. Scatter-gather IO advances each buffer's position independently, so the buffers themselves become the write state.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace each buffer's `position` separately. The message is logical, but progress is recorded inside every buffer in the array.
+</TracePrompt>
 
 <FlowDiagram title="Gathering write">
 Header ByteBuffer -> Payload ByteBuffer -> channel.write(buffers) -> ordered bytes on socket
@@ -107,6 +117,10 @@ The pending message keeps the same buffer array across write attempts. That stat
 <Warning title="Do not mutate queued buffers">
 Once a buffer is queued for a non-blocking write, treat its remaining bytes as owned by the IO path. Mutating the payload before the write completes can corrupt the wire message.
 </Warning>
+
+<RecallPrompt question="what state must survive a partial gathering write?">
+The same buffer array and each buffer's current position must survive until every buffer has no remaining bytes.
+</RecallPrompt>
 
 ## Production implications
 

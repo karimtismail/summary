@@ -11,6 +11,12 @@ For large byte streams, performance often improves when the application stops to
 
 Zero copy means avoiding redundant copies between kernel space and user space. It does not mean no bytes move anywhere. It means the application does not copy bytes merely to pass them along.
 
+<Misconception
+  soundsLike="Zero copy means the transfer is instant and no memory movement happens."
+  actually="Zero copy avoids unnecessary user-space copies when the runtime and OS can move bytes along a more direct path."
+  whyItMatters="The socket can still be full, TLS can change the path, and partial progress still needs state."
+/>
+
 ## Real-world problem
 
 A file server reads file bytes into a heap array and writes them to a socket. The application never inspects the payload. It pays allocation, copy, and cache costs for no product value.
@@ -22,6 +28,10 @@ If your application does not need to parse or transform a payload, keep it out o
 Zero copy is an architectural fit, not a decoration. It fits byte-moving services: static file serving, replication, proxying, and log shipping. It does not fit code that must inspect, compress, redact, encrypt in user space, or reshape every byte.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace whether the application needs to inspect payload bytes. Zero copy is a fit when the application owns policy and progress, not byte interpretation.
+</TracePrompt>
 
 <FlowDiagram title="Traditional transfer">
 Disk -> Kernel buffer -> User buffer -> Kernel socket buffer -> NIC
@@ -90,6 +100,10 @@ The object keeps transfer progress. A non-blocking socket may accept zero bytes 
 <Warning title="Zero copy does not remove backpressure">
 The socket can still be full, the client can still be slow, and the transfer can still be partial. Treat file transfer as a paced outbound operation, not an instant side effect.
 </Warning>
+
+<RecallPrompt question="when is zero copy the wrong tool?">
+It is the wrong tool when the application must inspect, transform, redact, compress, or encrypt the payload in user space before sending it.
+</RecallPrompt>
 
 ## Production implications
 

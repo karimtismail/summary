@@ -11,6 +11,12 @@ Stateful stream processing is not just consuming messages quickly. It maintains 
 
 Stream processing reads events continuously, updates state, and emits new events. It is useful for aggregations, enrichment, joins, fraud signals, materialized views, and real-time workflows.
 
+<Misconception
+  soundsLike="A stream processor is just a faster consumer loop."
+  actually="A stateful stream processor owns topology, local state, changelog recovery, time semantics, and output contracts."
+  whyItMatters="Ignoring state and recovery makes a topology look fast until a rebalance, restart, or late event exposes the hidden cost."
+/>
+
 ## Real-world problem
 
 A dashboard needs order totals per merchant every minute. Querying the transactional database for every refresh is expensive and delayed. A stream processor can maintain the running aggregate as events arrive.
@@ -29,6 +35,10 @@ State is recoverable because Kafka keeps the input and changelog history.
 The operational question is: **how long would it take to rebuild this state after a node dies?** If that answer is surprising, the topology is not production-ready yet.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace state, not only records. Watch where the aggregate lives, how it is backed up, and how long it takes to restore after movement.
+</TracePrompt>
 
 <ArchitectureDiagram title="Stateful processing">
 orders topic -> group by merchant -> windowed aggregate -> merchant totals topic
@@ -104,6 +114,10 @@ Tumbling, hopping, and session windows answer different product questions. Also 
 <Highlight title="Recovery is part of performance">
 State store size, changelog compaction, local disk speed, standby replicas, and checkpoint freshness decide how long a rebalance or restart hurts the application.
 </Highlight>
+
+<RecallPrompt question="why is restore time part of stream-processing performance?">
+A stateful task cannot resume useful work until its local state is available again, so changelog size, disk speed, and standby strategy affect incident duration and rebalance pain.
+</RecallPrompt>
 
 ## Production implications
 

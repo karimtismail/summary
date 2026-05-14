@@ -11,6 +11,12 @@ A Kafka event may be read by services that deploy tomorrow, next month, or durin
 
 Kafka stores bytes. The meaning of those bytes lives in a schema contract. If producers and consumers disagree about that contract, replay becomes dangerous.
 
+<Misconception
+  soundsLike="Schema changes are safe if the current producer and current consumer deploy together."
+  actually="Kafka history can be read by old consumers, new consumers, replay jobs, and delayed systems, so compatibility must include old records and mixed deployments."
+  whyItMatters="A change that passes today's happy path can break replay, dead-letter recovery, analytics, or a slow consumer group later."
+/>
+
 ## Real-world problem
 
 A producer renames `customerId` to `accountId`. New consumers work. Old consumers fail. Replaying old records into new code also fails because historical events still contain the old field.
@@ -28,6 +34,10 @@ Design for compatibility:
 Kafka decouples producers and consumers, so schema changes are multi-deploy migrations. A safe change usually means consumers become tolerant before producers become ambitious.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace old data through new code and new data through old code. A safe schema change survives both directions during the migration window.
+</TracePrompt>
 
 <FlowDiagram title="Safe event change">
 Add optional field -> Deploy tolerant consumers -> Produce both fields -> Migrate readers -> Remove only after retention and policy allow
@@ -93,6 +103,10 @@ The compatibility adapter keeps old records readable while the organization migr
 <Warning title="Do not redefine meaning in place">
 Changing `customerId` from a customer identifier to an account identifier without a migration field is worse than a rename: the old consumers may keep running while silently making wrong decisions.
 </Warning>
+
+<RecallPrompt question="why is a rename usually a migration, not a one-line schema edit?">
+Old records keep the old field, old consumers may still read the topic, and replay jobs need both meanings to stay explicit until retention and consumer policy allow removal.
+</RecallPrompt>
 
 ## Production implications
 

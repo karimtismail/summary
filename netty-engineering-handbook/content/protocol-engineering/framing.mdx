@@ -11,6 +11,12 @@ If your protocol runs over TCP, the first question is not how to parse a message
 
 TCP is a byte stream. It may deliver half a message, three messages, or any other chunking pattern. Framing is the protocol rule that turns streams back into message boundaries.
 
+<Misconception
+  soundsLike="If the client writes one message, the server will read one message."
+  actually="TCP preserves byte order but not application message boundaries. Reads can split, merge, or delay protocol messages."
+  whyItMatters="Parsers that assume one read equals one message fail under normal traffic, not only under exotic network conditions."
+/>
+
 ## Real-world problem
 
 A client sends two JSON objects quickly. The server reads once and receives both in the same buffer. Another time it receives half of the first object. A parser that expects one read per message fails both ways.
@@ -29,6 +35,10 @@ Length-prefix framing is common for binary protocols because it is explicit and 
 The framing rule must be decided before decoding business meaning. A decoder cannot safely parse "order created" until it first knows where that frame begins and ends.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace boundary detection before business parsing. The first proof you need is where the frame starts, where it ends, and whether the claimed size is allowed.
+</TracePrompt>
 
 <ArchitectureDiagram title="Length-prefix frame">
 0         4                 4 + length
@@ -89,6 +99,10 @@ Every frame format needs a maximum size, a bad-length policy, and a timeout or c
 <Highlight title="Do not mix framing and business parsing">
 Keep the first decoder responsible for boundaries only. Parse domain objects after a complete frame exists; otherwise partial input and malformed input become much harder to reason about.
 </Highlight>
+
+<RecallPrompt question="what is the first job of a TCP protocol decoder?">
+Its first job is framing: prove the message boundary and size before decoding business meaning.
+</RecallPrompt>
 
 ## Production implications
 

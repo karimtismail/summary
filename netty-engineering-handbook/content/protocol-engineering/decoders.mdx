@@ -11,6 +11,12 @@ Decoding is not a one-shot parse. It is a careful state transition across partia
 
 Decoders must be patient. If there are not enough bytes, they return and wait for more. If there are enough bytes, they consume exactly one message boundary and emit a typed object.
 
+<Misconception
+  soundsLike="A decoder is just a parser that runs whenever bytes arrive."
+  actually="A decoder is a state machine over partial input. It must peek, validate, wait, consume, and emit without corrupting the reader index."
+  whyItMatters="One speculative read in the wrong place can desynchronize every later frame on the connection."
+/>
+
 ## Real-world problem
 
 A decoder reads a length field, discovers the payload is incomplete, and forgets to reset the reader index. The next read starts in the wrong place and every future frame is corrupt.
@@ -20,6 +26,10 @@ A decoder reads a length field, discovers the payload is incomplete, and forgets
 Decode only when you can complete the transition. Mark reader state before speculative reads, or use Netty decoders that manage cumulation carefully.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace reader index movement. A safe decoder advances only after it can prove the complete frame is present and valid.
+</TracePrompt>
 
 <FlowDiagram title="Decoder loop">
 Receive bytes -> Check enough header -> Check enough payload -> Emit message -> Keep unread tail
@@ -88,6 +98,10 @@ The decoder peeks with `getByte` and `getInt`, so partial input does not disturb
 <Warning title="Never trust the length field">
 A malicious or broken peer can claim a huge payload. Always set a maximum frame size before allocating, retaining, or waiting forever for bytes that should not be accepted.
 </Warning>
+
+<RecallPrompt question="why peek before consuming header bytes?">
+Peeking lets the decoder inspect version and length while preserving the reader index if the full frame has not arrived yet.
+</RecallPrompt>
 
 ## Production implications
 

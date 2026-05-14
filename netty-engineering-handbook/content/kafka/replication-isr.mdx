@@ -11,6 +11,12 @@ Kafka replication is not just copying data. It is deciding which replicas are ca
 
 Each partition has a leader replica and follower replicas. Producers write to the leader. Followers replicate from the leader. The in-sync replica set, or ISR, contains replicas that are sufficiently caught up.
 
+<Misconception
+  soundsLike="Replication factor alone means my Kafka write is durable."
+  actually="Durability depends on which replicas are in sync at write time and what acknowledgement policy the producer requires."
+  whyItMatters="A topic can have multiple replicas and still lose acknowledged data if the producer accepts weak acknowledgements or unsafe leader election is allowed."
+/>
+
 ## Real-world problem
 
 A producer uses weak acknowledgements. The leader accepts a record and crashes before followers copy it. A new leader is elected without that record, and the event disappears.
@@ -22,6 +28,10 @@ Durability is a relationship between replication factor, ISR health, `acks`, and
 For important data, require the leader and enough in-sync followers to acknowledge before the write is considered successful.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace membership in the ISR. The key question is which replicas were trusted when the producer considered the write successful.
+</TracePrompt>
 
 <ArchitectureDiagram title="Partition replicas">
 partition 0
@@ -36,6 +46,15 @@ When a follower falls too far behind, it leaves the ISR. If ISR size drops below
 
 `unclean.leader.election.enable` changes that tradeoff. Leaving it disabled protects committed data by refusing to elect a replica outside the ISR; enabling it can restore availability at the cost of possible data loss.
 
+<RuntimeTrace title="Durable write decision">
+Append leader | The partition leader writes the record.
+Replicate | Followers fetch the new record from the leader.
+Track ISR | Kafka keeps only sufficiently caught-up replicas in the ISR.
+Check minimum | `min.insync.replicas` decides whether enough replicas are available.
+Ack producer | With `acks=all`, success waits for the required in-sync replicas.
+Elect leader | On failure, a new leader should come from the ISR to preserve committed data.
+</RuntimeTrace>
+
 ## Code example
 
 ```properties
@@ -49,6 +68,10 @@ enable.idempotence=true
 ```
 
 This configuration prefers failing writes over accepting records with insufficient replication.
+
+<RecallPrompt question="what does `acks=all` need from the topic to be meaningful?">
+It needs enough healthy in-sync replicas, usually enforced with `min.insync.replicas`, so the producer fails when the cluster cannot meet the durability contract.
+</RecallPrompt>
 
 ## Production implications
 

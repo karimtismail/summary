@@ -13,6 +13,12 @@ A networked program sends bytes into a system that can delay them, split them, r
 
 The application owns intent. The transport owns delivery mechanics. The kernel owns buffers and readiness. The network owns uncertainty.
 
+<Misconception
+  soundsLike="A network call is just a slower method call to another service."
+  actually="A network call is byte movement across queues, kernels, protocols, and failure domains that can delay, split, drop, or back up independently."
+  whyItMatters="Remote-method thinking hides the queues you need to measure when latency rises or writes stop draining."
+/>
+
 ## Real-world problem
 
 A service looks fast in local tests and stalls in production. CPU is low, but requests pile up. The cause is usually not "the network is slow" as a vague statement. It is a concrete mismatch between arrival rate, socket buffers, application parsing, and downstream capacity.
@@ -32,6 +38,10 @@ Your application only sees part of that system. A successful `write` usually mea
 
 ## Visual explanation
 
+<TracePrompt>
+Trace ownership of bytes, not only the request name. Watch where bytes wait, who accepts them, and which boundary proves that progress actually happened.
+</TracePrompt>
+
 <FlowDiagram title="One outbound message">
 Application intent -> User-space buffer -> Kernel socket buffer -> Network path -> Peer socket buffer -> Peer application
 </FlowDiagram>
@@ -43,6 +53,15 @@ This is why networking APIs feel surprising. The useful boundary is not always t
 The kernel exposes sockets as file descriptors. A descriptor can become readable, writable, closed, or errored. Your process observes those states through blocking calls, readiness APIs, or completion APIs.
 
 At runtime, networking systems are mostly coordination systems: move bytes at the right time, avoid blocking the wrong thread, and apply pressure when the peer or downstream system slows down.
+
+<RuntimeTrace title="One message as evidence">
+Prepare | The application turns intent into bytes and chooses a destination.
+Accept locally | A write may only prove the local kernel accepted bytes.
+Travel | The network may delay, fragment, retry, or lose the connection.
+Queue remotely | The peer kernel may hold bytes before the peer application reads.
+Process | The peer application parses, validates, and performs its own side effects.
+Respond | The same chain runs in reverse for response bytes.
+</RuntimeTrace>
 
 ## Code example
 
@@ -63,6 +82,10 @@ while (outbound.hasRemaining()) {
 ```
 
 The code is small, but the idea is large: progress is conditional. A non-blocking write may write some bytes, all bytes, or no bytes.
+
+<RecallPrompt question="what does a successful local write prove?">
+It proves local progress, usually that the kernel accepted some bytes. It does not prove the peer application received, parsed, or processed the message.
+</RecallPrompt>
 
 ## Production implications
 

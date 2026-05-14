@@ -11,6 +11,12 @@ HTTP is not just text over TCP. It is a set of semantics around requests, respon
 
 HTTP gives applications a common language: methods, paths, status codes, headers, bodies, and upgrade mechanisms. Netty gives you the tools to decide how much of that protocol you want to handle directly.
 
+<Misconception
+  soundsLike="HTTP is simple enough to parse as strings for a small server."
+  actually="HTTP includes body framing, chunking, connection reuse, header rules, upgrades, intermediaries, and malformed-input behavior."
+  whyItMatters="String parsing often works in demos and then fails under chunked bodies, persistent connections, proxies, or malicious requests."
+/>
+
 ## Real-world problem
 
 A custom server treats the first blank line as the end of an HTTP request. That shortcut fails once the server meets chunked bodies, persistent connections, compression, or malformed headers. The problem is trying to parse a mature protocol as a string exercise.
@@ -25,6 +31,10 @@ HTTP is two contracts at once:
 - transport contract: connection reuse, body streaming, backpressure, timeouts, intermediaries
 
 ## Visual explanation
+
+<TracePrompt>
+Trace syntax separately from semantics. Let codecs prove the HTTP shape, then let application code decide method, path, auth, body size, and response.
+</TracePrompt>
 
 <FlowDiagram title="HTTP pipeline">
 TCP bytes -> HttpServerCodec -> HttpObjectAggregator or streaming chunks -> Application handler
@@ -97,6 +107,10 @@ Aggregation is convenient, but it must be bounded.
 <Warning title="HTTP parsing is security-sensitive">
 Do not hand-roll header parsing, body limits, chunk handling, or upgrade behavior unless you are deliberately writing protocol infrastructure. Mature codecs exist because real HTTP has ambiguous-looking edge cases.
 </Warning>
+
+<RecallPrompt question="when is `HttpObjectAggregator` a good fit?">
+It is a good fit for bounded, small request or response bodies where holding the full message in memory is acceptable and the maximum size is explicit.
+</RecallPrompt>
 
 ## Production implications
 

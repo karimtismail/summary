@@ -11,6 +11,12 @@ At-most-once, at-least-once, and exactly-once are not slogans. They are answers 
 
 Delivery semantics describe duplicate and loss behavior. Kafka gives primitives, but the end-to-end guarantee depends on producers, consumers, offset commits, side effects, and downstream systems.
 
+<Misconception
+  soundsLike="Kafka's delivery setting decides the whole application's correctness guarantee."
+  actually="The guarantee is end to end: producer writes, topic durability, consumer offset timing, side effects, retries, and downstream idempotency all participate."
+  whyItMatters="A workflow can use strong Kafka settings and still charge, email, or write to a database twice."
+/>
+
 ## Real-world problem
 
 A consumer charges a credit card and crashes before committing the offset. On restart, it reads the same event again. Kafka worked correctly. The application was not idempotent.
@@ -26,6 +32,10 @@ Semantics by failure mode:
 The boundary is the whole point. Kafka can protect Kafka records and committed Kafka offsets. It cannot magically undo a charged card, an email that was already sent, or a database write that did not participate in the same transaction.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the offset and the side effect separately. The guarantee is defined by what survives a crash and what can repeat.
+</TracePrompt>
 
 <FlowDiagram title="At-least-once failure">
 Read record -> Apply side effect -> Crash before commit -> Replay -> Side effect may repeat
@@ -101,6 +111,10 @@ This application-level guard often matters more than the broker setting.
 <Warning title="Commit position is not business correctness">
 Committing an offset says "this consumer group can resume after this record." It does not prove the external side effect is correct. For external systems, use idempotency keys, unique constraints, outbox/inbox tables, or reconciliation.
 </Warning>
+
+<RecallPrompt question="where does exactly-once stop helping?">
+Kafka transactions can protect Kafka records and Kafka offsets inside their boundary. External APIs, emails, payments, and unrelated databases still need idempotency or reconciliation.
+</RecallPrompt>
 
 ## Production implications
 

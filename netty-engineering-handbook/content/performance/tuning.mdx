@@ -11,6 +11,12 @@ The fastest way to make a system worse is to tune a setting before proving which
 
 Tuning starts with a question: what resource or queue is limiting the system? Only then do configuration changes have meaning.
 
+<Misconception
+  soundsLike="Performance tuning is knowing the right set of advanced options."
+  actually="Tuning is a measurement loop: define the workload, locate the bottleneck, change one variable, and compare the result."
+  whyItMatters="Copied knobs can improve one metric while worsening p99 latency, memory pressure, or downstream overload."
+/>
+
 ## Real-world problem
 
 A team raises worker threads, socket buffers, and timeouts after a latency incident. Throughput improves briefly, then tail latency gets worse because the real issue was downstream saturation.
@@ -29,6 +35,10 @@ Use a loop:
 The most useful tuning question is boring and precise: **which queue got longer first?** If you cannot name the first queue, the knob is probably a guess.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the first queue that grows. The useful knob is the one that addresses the measured boundary, not the one that sounds most performance-oriented.
+</TracePrompt>
 
 <FlowDiagram title="Tuning loop">
 Baseline -> Hypothesis -> One change -> Load test -> Compare percentiles -> Decide
@@ -78,6 +88,10 @@ These values are not universal. They express a workload hypothesis.
 <Highlight title="What the setting is trying to change">
 `SO_BACKLOG` changes the accept queue behavior under connection bursts. `TCP_NODELAY` changes packet coalescing latency tradeoffs. `WRITE_BUFFER_WATER_MARK` changes when a channel becomes non-writable. None of them fixes slow business code.
 </Highlight>
+
+<RecallPrompt question="why change only one tuning variable at a time?">
+Changing one variable preserves cause and effect. If p99 latency or throughput changes after five knobs move, you cannot tell which change helped or hurt.
+</RecallPrompt>
 
 ## Production implications
 

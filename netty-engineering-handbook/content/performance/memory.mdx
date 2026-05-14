@@ -11,6 +11,12 @@ For network servers, memory pressure often shows up as tail latency before it sh
 
 Networking moves bytes continuously. Allocation patterns, direct memory usage, pooling, and object lifetimes shape both throughput and latency.
 
+<Misconception
+  soundsLike="If heap usage looks fine, memory is not the performance problem."
+  actually="Networking systems also spend direct memory, pooled buffers, outbound queues, allocator arenas, and GC allocation budget."
+  whyItMatters="A service can have healthy heap graphs while direct memory, pending writes, or allocation rate creates tail latency."
+/>
+
 ## Real-world problem
 
 A server has low average latency but frequent spikes. CPU is acceptable. GC logs show promotion pressure from per-request byte arrays and short-lived wrapper objects.
@@ -29,6 +35,10 @@ Each pool has different failure modes.
 The useful question is not "heap or off-heap?" It is **who owns this memory, what queue can hold it, and what signal tells us it is not returning?**
 
 ## Visual explanation
+
+<TracePrompt>
+Trace ownership and lifetime for each byte buffer. The important question is who can keep memory alive and which queue or pool proves it returned.
+</TracePrompt>
 
 <FlowDiagram title="Memory pressure path">
 Per-message allocation -> GC pressure -> Pause or CPU overhead -> EventLoop delay -> Tail latency
@@ -106,6 +116,10 @@ A process can have healthy Java heap and still fail from direct memory pressure,
 <Highlight title="Leak detection is a diagnosis tool">
 Netty leak detector output means a reference-counted object escaped its release path. Use higher leak detection levels in lower environments or targeted incident reproduction, then fix ownership instead of hiding the warning.
 </Highlight>
+
+<RecallPrompt question="why can direct memory pressure hide from heap-only dashboards?">
+Direct buffers and allocator pools live outside the Java heap, so heap usage can look stable while the process runs out of native memory or queues too many outbound bytes.
+</RecallPrompt>
 
 ## Production implications
 

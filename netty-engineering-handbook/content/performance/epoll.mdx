@@ -13,6 +13,12 @@ On Linux, epoll is a scalable readiness notification API. It tells an event loop
 
 Netty can use native epoll transport to access Linux-specific behavior beyond the JDK NIO selector path.
 
+<Misconception
+  soundsLike="Switching to epoll automatically makes a Netty service fast."
+  actually="epoll improves the readiness boundary on Linux, but handler blocking, bad framing, unbounded queues, and slow downstreams still dominate many services."
+  whyItMatters="Changing the transport without proving the bottleneck can add packaging risk while leaving the real latency source untouched."
+/>
+
 ## Real-world problem
 
 A service handles many idle connections and a smaller active subset. Waking up to inspect every connection would waste time. epoll focuses attention on descriptors with events.
@@ -24,6 +30,10 @@ Register interest once, wait for events, process ready descriptors, update inter
 The kernel does not understand your protocol. It only reports readiness. Your EventLoop still has to drain reads, handle partial writes, apply backpressure, and keep callbacks short.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace readiness separately from application work. epoll tells the EventLoop which descriptors can make progress; it does not make the handler cheap or the peer fast.
+</TracePrompt>
 
 <FlowDiagram title="epoll model">
 Register fd -> Kernel readiness set -> epoll_wait -> EventLoop processes ready fd
@@ -88,6 +98,10 @@ The Linux epoll transport requires the native transport dependency with the righ
 <Highlight title="Netty version note">
 Some current Netty examples use newer `MultiThreadIoEventLoopGroup` style setup with transport-specific IO handler factories. Older projects often use `EpollEventLoopGroup`. Keep the chapter's lesson stable: choose the transport deliberately, verify it actually loads, and benchmark with your workload.
 </Highlight>
+
+<RecallPrompt question="what must you prove before crediting epoll for a speedup?">
+Prove that the native transport loaded in the deployed environment and that the measured bottleneck was IO readiness overhead, not blocking handlers, queues, TLS, or downstream latency.
+</RecallPrompt>
 
 ## Production implications
 

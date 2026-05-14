@@ -11,6 +11,12 @@ A network architecture is not a box diagram. It is a set of queues, protocols, o
 
 The best networking architecture makes pressure visible and failure contained. It defines what each service promises on the wire and what happens when that promise cannot be kept.
 
+<Misconception
+  soundsLike="Architecture is mostly boxes, arrows, and technology choices."
+  actually="Production architecture is the runtime shape of boundaries, queues, budgets, ownership, compatibility, and failure policy."
+  whyItMatters="A diagram that omits limits and pressure paths cannot explain why memory grows, latency spreads, or retries amplify an incident."
+/>
+
 ## Real-world problem
 
 A gateway accepts traffic, decodes custom messages, calls three services, and streams responses. Without explicit boundaries, one downstream slowdown fills gateway memory and degrades unrelated clients.
@@ -29,6 +35,10 @@ Design each boundary:
 The architecture is healthy when every boundary has a boring answer to four questions: **what can enter, how much can wait, how long may it take, and what happens when it fails?**
 
 ## Visual explanation
+
+<TracePrompt>
+Trace what can wait at each boundary and who owns the failure decision. A useful architecture diagram names queues, budgets, and pressure, not only services.
+</TracePrompt>
 
 <ArchitectureDiagram title="Boundary-oriented service">
 clients
@@ -92,6 +102,10 @@ This record is not a replacement for Netty config. It is a design artifact: it f
 <Warning title="Architecture without limits becomes memory policy">
 If a design says "queue it", "retry it", or "broadcast it" without a cap, then the real policy is to spend memory until the process or downstream dependency pushes back.
 </Warning>
+
+<RecallPrompt question="what four questions should every runtime boundary answer?">
+What can enter, how much can wait, how long may it take, and what happens when it fails?
+</RecallPrompt>
 
 ## Production implications
 

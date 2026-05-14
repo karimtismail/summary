@@ -5,6 +5,8 @@ description: Kafka production work is about lag, retention, compaction, partitio
 
 <StoryBlock title="Kafka Fails Through Queues">
 Most Kafka incidents are queueing stories: producers cannot append, brokers cannot replicate, consumers cannot keep up, or disks cannot retain what the business expects.
+
+The trap is to treat every incident as a configuration puzzle. Kafka performance work usually starts by proving which queue, disk, network link, CPU pool, partition set, or downstream system is actually under pressure.
 </StoryBlock>
 
 ## Intuition
@@ -13,26 +15,61 @@ Operating Kafka means watching the event system as a set of logs and queues. Lag
 
 Kafka 4.x runs in KRaft mode. That means the controller quorum is part of the Kafka cluster itself; ZooKeeper-era runbooks, metrics, and configuration names should not be treated as current production guidance.
 
+Kafka performance has three competing goals:
+
+- throughput: how many records or bytes move per second
+- latency: how long one record takes to move end to end
+- utilization: how much CPU, disk, network, memory, and recovery headroom remains
+
+You rarely improve all three at once. Larger batches can raise throughput, but they add waiting. Compression can reduce network and disk pressure, but it costs CPU. More partitions can unlock consumer parallelism, but they increase metadata, file handles, leader election work, and rebalance cost.
+
+<Misconception
+  soundsLike="Kafka tuning means finding the right values for batch.size, linger.ms, compression.type, and partition count."
+  actually="Those settings only help when they match a measured workload bottleneck. The first job is to locate the slow boundary and saturated resource."
+  whyItMatters="Tuning the wrong layer can hide the real failure, move the bottleneck, or make tail latency worse."
+/>
+
 ## Real-world problem
 
-Consumer lag rises after a deploy. The team adds consumers, but lag stays high because the topic has fewer partitions than consumers and the handler is blocked on a downstream database.
+Consumer lag rises after a deploy. The team adds consumers, but lag stays high. The topic has fewer partitions than consumers, so extra group members sit idle. The active consumers are also blocked on a downstream database, while broker CPU and network are mostly idle.
+
+The problem is not "Kafka is slow." The problem is parallelism and handler time. Producer tuning will not fix it.
 
 ## Mental model
 
-Debug Kafka performance by boundary:
+Debug Kafka performance by asking four questions in order:
 
-- producer batching and errors
-- broker request latency and disk IO
-- replication health
-- consumer fetch and processing time
-- downstream side effects
-- retention and compaction behavior
+- Which business goal matters: throughput, p99 latency, cost, recovery time, or retention?
+- Which boundary is slow: producer, broker, replication, controller quorum, consumer, or downstream side effect?
+- Which constraint is saturated: CPU, disk IO, network, page cache, partition parallelism, or external dependency?
+- Which single variable will you change, and what metric proves it helped?
+
+Common boundaries have different signatures:
+
+- producer bottleneck: high produce latency while brokers have spare CPU and network
+- broker bottleneck: high request latency, hot disks, high CPU, or under-replicated partitions
+- consumer bottleneck: lag grows while brokers are idle and processing time is high
+- partition bottleneck: consumers outnumber partitions, hot keys overload one partition, or rebalance time grows
+- lifecycle bottleneck: retention, compaction, or segment movement competes with normal traffic
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the record as pressure moves between queues. At each boundary, ask whether the record is waiting for batching, append, replication, fetch, processing, commit, or downstream IO.
+</TracePrompt>
 
 <FlowDiagram title="Operational pressure path">
 Producer rate -> Broker append -> Replication -> Consumer fetch -> Handler side effect -> Offset commit
 </FlowDiagram>
+
+<RuntimeTrace title="Bottleneck signatures">
+Producer slow | Increase batching only if the producer is sending inefficiently and the latency budget allows waiting.
+Broker slow | Add broker capacity, rebalance partitions, or improve disk/network only after broker resource pressure is visible.
+Consumer slow | Add consumers only up to partition count, then reduce handler time or downstream waits.
+Network bound | Compression can help when CPU has headroom and byte volume is the limit.
+CPU bound | Compression, heavy serialization, or too many tiny partitions can make the bottleneck worse.
+Disk bound | Faster storage, better retention sizing, or fewer competing lifecycle jobs may help more than client tuning.
+</RuntimeTrace>
 
 ## Runtime behavior
 
@@ -40,10 +77,36 @@ Kafka stores segment files on disk and relies heavily on OS page cache. Retentio
 
 In current Kafka, metadata is managed by KRaft controllers. Broker health and controller quorum health are separate operational questions, even when broker and controller roles run on the same node.
 
+Producer batching happens before broker append. `batch.size` limits the amount of data the producer tries to collect for a partition batch, and `linger.ms` is the time the producer may wait for more records before sending. Larger batches reduce request overhead, but they spend part of the latency budget before the broker even sees the record.
+
+Consumer fetch settings create the same tradeoff on the read side. `fetch.min.bytes` tells the broker how much data the consumer would like before a fetch returns, and `fetch.max.wait.ms` caps how long the broker can wait. Bigger fetches reduce request overhead. Smaller fetches return sooner.
+
+Partitions are the unit of ordering, storage, replication, and consumer parallelism. Too few partitions cap consumer group parallelism. Too many partitions create broker overhead even if traffic volume is unchanged.
+
 ## Code example
 
+Treat these as benchmark hypotheses, not universal defaults:
+
 ```properties
-# Topic-level examples
+# Throughput-biased producer hypothesis
+batch.size=1048576
+linger.ms=50
+compression.type=lz4
+
+# Latency-biased producer hypothesis
+batch.size=16384
+linger.ms=0
+compression.type=none
+
+# Throughput-biased consumer hypothesis
+fetch.min.bytes=1048576
+fetch.max.wait.ms=500
+
+# Latency-biased consumer hypothesis
+fetch.min.bytes=1
+fetch.max.wait.ms=50
+
+# Topic lifecycle examples
 retention.ms=604800000
 segment.bytes=1073741824
 cleanup.policy=delete
@@ -55,23 +118,58 @@ min.cleanable.dirty.ratio=0.5
 
 Retention and compaction are data lifecycle policies, not cleanup afterthoughts.
 
+When benchmarking a change, keep the payload shape, partition count, broker class, replication factor, and network path close to production. Change one variable at a time:
+
+```bash
+kafka-producer-perf-test \
+  --topic perf.orders \
+  --num-records 1000000 \
+  --record-size 1024 \
+  --throughput -1 \
+  --producer-props \
+    bootstrap.servers=localhost:9092 \
+    batch.size=32768 \
+    linger.ms=10 \
+    compression.type=lz4
+```
+
+The command is useful only when the test environment is honest enough to expose the same class of bottleneck as production.
+
+<RecallPrompt question="what should you identify before changing a Kafka tuning knob?">
+Identify the business goal, the slow boundary, the saturated resource, and the metric that would prove the change helped.
+</RecallPrompt>
+
 ## Production implications
 
-Create dashboards for under-replicated partitions, offline partitions, request latency, producer errors, fetch errors, consumer lag by group, disk usage, controller quorum health, metadata load, and rebalance frequency.
+Create dashboards and alerts for under-replicated partitions, offline partitions, request latency, producer errors, fetch errors, consumer lag by group and partition, disk usage, controller quorum health, metadata load, rebalance frequency, CPU, network throughput, disk IO, and page-cache pressure.
+
+Graphs are not enough. Alert on conditions that describe damage or lost headroom: lag growing faster than consumers can drain, p99 request latency crossing the service budget, disks approaching retention risk, under-replicated partitions persisting, or normal traffic running near CPU/network saturation.
+
+Keep Kafka as a streaming log, not an infinite database. Retention can be long, but disabling lifecycle management because "we may need every event forever" turns broker recovery, disk growth, and operational cost into production risks. Move long-term analytical or historical storage to systems designed for that job.
 
 ## Performance implications
 
-Tune with workload evidence. Partition count, batch size, compression, linger, fetch size, socket buffers, and disk layout interact. Change one variable and compare percentiles and recovery behavior.
+Tune with workload evidence. Partition count, batch size, compression, linger, fetch size, socket buffers, retention, compaction, and disk layout interact. Change one variable and compare throughput, p99 latency, resource utilization, lag drain rate, rebalance time, and recovery behavior.
+
+Optimize when the cluster has unused resources but work moves inefficiently. Examples include tiny producer batches, poor compression on a network-bound workload, hot partition keys, consumers blocked on synchronous database writes, or topics split so finely that metadata overhead dominates.
+
+Scale when the measured resource is genuinely exhausted. Add brokers when broker CPU, disk, or network is the limiting resource. Add partitions when consumer parallelism is capped by partition count and the broker fleet can afford the additional overhead. Add consumers when partitions are available and handler time is the limit.
 
 ## Common bugs
 
 - treating lag as one number instead of per partition and consumer group
+- tuning producers while consumers or downstream systems are the bottleneck
+- benchmarking on toy traffic and trusting the result for production
+- optimizing average latency while p99 latency is the user-visible failure
+- assuming compression always helps even when CPU is already saturated
 - using compaction for event history that needs every event
-- creating partitions without capacity planning
+- using Kafka as permanent storage by disabling retention without an operational plan
+- creating separate topics for every event verb until topic and partition overhead dominates
+- creating partitions without capacity planning or recovery-time targets
 - ignoring disk and page-cache behavior
 - carrying ZooKeeper-era checks into Kafka 4.x without replacing them with KRaft controller checks
-- tuning producers while consumers are the bottleneck
+- running containerized Kafka without orchestration, storage, upgrade, and failure runbooks
 
 ## Summary
 
-Kafka operations are about making log movement visible. Once each boundary is measured, tuning becomes engineering instead of guessing.
+Kafka operations are about making log movement visible. Start with the metric that matters, locate the slow boundary, identify the saturated resource, then change one variable and measure the result. Once each boundary is measured, tuning becomes engineering instead of guessing.

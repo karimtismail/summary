@@ -13,6 +13,12 @@ Encoding is where application meaning becomes wire format. The encoder decides f
 
 Good encoders are boring because their output is predictable.
 
+<Misconception
+  soundsLike="Encoding is just the reverse of decoding."
+  actually="Encoding is a compatibility boundary that decides byte order, version markers, length fields, optional fields, and what older clients can safely reject."
+  whyItMatters="A small output change can become a production protocol break even when the server code compiles."
+/>
+
 ## Real-world problem
 
 A service adds a field to a binary response without a version marker or length-delimited extension area. Older clients misread the rest of the frame.
@@ -22,6 +28,10 @@ A service adds a field to a binary response without a version marker or length-d
 Treat the encoder as a serializer plus a compatibility boundary. It should know the protocol version and produce frames older clients can either understand or reject cleanly.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the exact bytes an old and new client will receive. Compatibility lives in the wire format, not in the server's intention.
+</TracePrompt>
 
 <FlowDiagram title="Outbound protocol path">
 Domain response -> Versioned message -> Encoder -> Framed bytes -> Socket write
@@ -70,6 +80,10 @@ Reserving the length lets the encoder fill it after the payload is known.
 <Warning title="Encoding is part of compatibility">
 If payload text, byte order, length calculation, or field order changes, old clients may parse valid bytes as the wrong message. Lock the wire contract with golden byte tests before changing it.
 </Warning>
+
+<RecallPrompt question="why are golden byte tests useful for encoders?">
+They catch accidental changes to field order, length calculation, charset, flags, and byte order before clients parse valid bytes as the wrong protocol shape.
+</RecallPrompt>
 
 ## Production implications
 

@@ -13,6 +13,12 @@ A network outage is rarely one signal. It is a stack of symptoms across clients,
 
 Good debugging narrows the layer before changing the system.
 
+<Misconception
+  soundsLike="Production debugging means trying the likely fix quickly."
+  actually="Production debugging means narrowing the failed boundary with evidence, changing the smallest useful control, and verifying the original symptom."
+  whyItMatters="Fast guesses often destroy evidence, widen blast radius, or make a queueing incident look temporarily better while the cause remains."
+/>
+
 ## Real-world problem
 
 Clients report timeouts. Server CPU is low. The load balancer shows many open connections. Netty write buffers are high. The actual issue is slow clients plus missing backpressure.
@@ -31,6 +37,10 @@ Follow the lifecycle:
 Debugging is a narrowing exercise. A good incident note should say: **we first saw symptom X, ruled out layers A and B, confirmed layer C with signal Y, changed Z, and verified with metric W.**
 
 ## Visual explanation
+
+<TracePrompt>
+Trace evidence from the user-visible symptom back to the first boundary where expected progress stopped.
+</TracePrompt>
 
 <FlowDiagram title="Incident path">
 Symptom -> Layer hypothesis -> Runtime metric -> Targeted trace -> Small fix -> Verification
@@ -114,6 +124,10 @@ The handler name and exception type help locate the failing boundary.
 <Warning title="Do not debug by leaking data">
 During incidents, log protocol phase, handler name, channel id, remote presence, error class, and safe correlation ids. Avoid raw payloads, tokens, cookies, credentials, or full personal data unless you have a controlled redaction path.
 </Warning>
+
+<RecallPrompt question="what makes an incident note useful after the outage?">
+It names the first symptom, the layers ruled out, the signal that confirmed the failed boundary, the change made, and the metric that proved recovery.
+</RecallPrompt>
 
 ## Production implications
 

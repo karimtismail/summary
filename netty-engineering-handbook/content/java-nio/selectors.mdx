@@ -13,6 +13,12 @@ A selector is a readiness multiplexer. Instead of one thread waiting inside one 
 
 That is the conceptual ancestor of the Netty EventLoop.
 
+<Misconception
+  soundsLike="A selected readable key means a full application message is ready."
+  actually="Readiness means the channel can probably make some progress without blocking. Framing and per-connection state still decide whether a complete message exists."
+  whyItMatters="Treating readiness as completion creates corrupt decoders, unfair loops, and bugs that appear only under partial traffic."
+/>
+
 ## Real-world problem
 
 Thousands of connections are idle, but any one of them may send data. You need to react quickly without dedicating thousands of blocked threads.
@@ -32,6 +38,10 @@ The hard part is fairness and state ownership.
 Readiness is a permission to try, not a promise that the whole application message is available. The selector tells you which channel can probably make progress; your protocol code still has to handle partial reads, partial writes, and per-connection state.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace readiness separately from protocol progress. The selector wakes the loop; your connection state decides what can safely be consumed or flushed.
+</TracePrompt>
 
 <FlowDiagram title="Selector loop">
 select -> selected keys -> read, write, accept, or connect -> update interest ops -> select again
@@ -99,6 +109,10 @@ Most sockets are writable most of the time. If every connection is always intere
 <Highlight title="This is why Netty exists">
 Selectors expose the raw event-driven shape. Netty adds channel state, pipelines, buffers, futures, and safer handler boundaries so every team does not rebuild this loop by hand.
 </Highlight>
+
+<RecallPrompt question="why is permanent OP_WRITE interest dangerous?">
+Most sockets are writable most of the time, so permanent write interest can wake the loop repeatedly and starve useful read or accept work.
+</RecallPrompt>
 
 ## Production implications
 

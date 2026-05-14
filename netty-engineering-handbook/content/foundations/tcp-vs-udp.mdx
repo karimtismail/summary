@@ -13,6 +13,12 @@ TCP is a conversation with memory. UDP is a message sent without a built-in conv
 
 Choose TCP when ordering and reliable delivery are part of the product expectation. Choose UDP when timeliness, custom recovery, multicast-style behavior, or protocol-level control matters more.
 
+<Misconception
+  soundsLike="TCP is safe and UDP is fast."
+  actually="TCP and UDP are different failure contracts. TCP repairs an ordered byte stream; UDP exposes datagram uncertainty so the application can decide what to do."
+  whyItMatters="Speed labels lead to wrong protocol choices. The real decision is whether stale, missing, duplicate, or delayed data is acceptable."
+/>
+
 ## Real-world problem
 
 A multiplayer game cannot wait for an old position update to be retransmitted before receiving the newest position. A payment API cannot silently drop a transfer request because the network was congested.
@@ -26,6 +32,10 @@ TCP gives you a reliable byte stream, not messages. UDP gives you datagrams, not
 That difference shapes the protocol above it. TCP protocols need framing. UDP protocols need loss tolerance, sequencing, or idempotency when correctness matters.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace who owns loss repair and ordering. The transport choice decides whether those responsibilities live in the kernel protocol or in your application protocol.
+</TracePrompt>
 
 <FlowComparison
   title="TCP and UDP failure contracts"
@@ -45,6 +55,14 @@ TCP manages sequence numbers, acknowledgements, retransmission, congestion windo
 
 UDP sends discrete datagrams. A receive operation gets one datagram at a time, but delivery is not guaranteed and large datagrams may be fragmented below your application.
 
+<RuntimeTrace title="Transport decision trace">
+Message shape | Decide whether the application needs a stream or independent datagrams.
+Loss behavior | Decide whether old data should be repaired, ignored, or replaced.
+Ordering | Decide whether later data may pass older missing data.
+Congestion | Decide who slows down when the path is overloaded.
+Protocol work | Add framing for TCP or recovery/idempotency for UDP where needed.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
@@ -56,6 +74,10 @@ SocketAddress sender = udpChannel.receive(datagramBuffer);
 ```
 
 The API shape reveals the contract. TCP gives a stream. UDP gives datagrams.
+
+<RecallPrompt question="why does TCP still need framing?">
+TCP preserves byte order, not application message boundaries. A single read can contain half a message, one message, or several messages.
+</RecallPrompt>
 
 ## Production implications
 

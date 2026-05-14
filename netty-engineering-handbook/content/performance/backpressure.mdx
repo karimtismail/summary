@@ -11,6 +11,12 @@ Backpressure is not an error path. It is the control system that keeps normal sl
 
 Every network system has a point where it must say "not yet." Without that signal, memory grows, latency expands, retries multiply, and failure spreads.
 
+<Misconception
+  soundsLike="Backpressure is an error case you handle after the main path works."
+  actually="Backpressure is the normal control path for mismatched speeds between producers, buffers, consumers, and downstream systems."
+  whyItMatters="If overload has no planned signal, the real policy becomes unbounded memory growth, retry storms, or sudden connection loss."
+/>
+
 ## Real-world problem
 
 A server broadcasts updates to thousands of clients. Most keep up. A few mobile clients stall. If the server queues forever, slow clients consume memory that should serve healthy clients.
@@ -20,6 +26,10 @@ A server broadcasts updates to thousands of clients. Most keep up. A few mobile 
 Backpressure connects producer speed to consumer capacity. It can pause reads, stop accepting work, drop optional messages, close abusive connections, or ask upstream systems to slow down.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace where new work is created and where capacity is exhausted. Useful backpressure travels upstream to the producer of work, not only to the nearest buffer.
+</TracePrompt>
 
 <FlowDiagram title="Pressure path">
 Consumer slows -> Write buffer grows -> High watermark reached -> Stop reading or producing -> Drain -> Resume
@@ -79,6 +89,10 @@ Pause | The handler stops reading or producing optional work.
 Drain | The peer catches up and queued bytes fall below the low watermark.
 Resume | `isWritable()` becomes true and input can continue.
 </RuntimeTrace>
+
+<RecallPrompt question="why is an unbounded queue not backpressure?">
+An unbounded queue delays the overload signal until memory or latency fails. Backpressure deliberately exposes capacity limits early enough to pause, drop, shed, or fail fast.
+</RecallPrompt>
 
 ## Production implications
 

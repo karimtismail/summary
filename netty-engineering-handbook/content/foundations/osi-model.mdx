@@ -13,6 +13,12 @@ Every network failure has a layer. A DNS issue, TLS handshake failure, TCP reset
 
 The OSI model gives names to boundaries so engineers can move from symptom to evidence.
 
+<Misconception
+  soundsLike="The OSI model is a seven-layer memorization chart."
+  actually="The useful version is a debugging map that asks which transition failed: routing, connection, encryption, framing, protocol, or business handling."
+  whyItMatters="Treating every failure as an application error sends you to the wrong logs and often makes incidents longer."
+/>
+
 ## Real-world problem
 
 A client says "the API is down." The server says "no errors." The load balancer logs show resets. The packet capture shows SYNs, but no completed TLS handshake.
@@ -31,6 +37,10 @@ Use layers as a narrowing tool:
 
 ## Visual explanation
 
+<TracePrompt>
+Trace the failed transition. Do not ask only whether the service is up; ask which layer completed and which layer did not.
+</TracePrompt>
+
 <ArchitectureDiagram title="Pragmatic layer stack">
 Application protocol   HTTP, Redis, MQTT, custom binary
 Presentation           TLS, compression, serialization
@@ -47,6 +57,15 @@ In a Java server, multiple layers collapse into one stack trace. A `SocketExcept
 
 Netty makes those boundaries visible by modeling protocol work as handlers in a pipeline.
 
+<RuntimeTrace title="Layered failure read">
+Connect | IP route and transport connection either form or fail.
+Negotiate | TLS, compression, or protocol options either agree or reject.
+Frame | Bytes become protocol messages or decoder errors.
+Validate | The application accepts method, path, command, or payload shape.
+Handle | Business logic runs and may call downstream systems.
+Respond | Status, close reason, or timeout tells the next diagnostic step.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
@@ -57,6 +76,10 @@ pipeline.addLast("app", new ApiHandler());
 ```
 
 The pipeline is a practical layer stack. Bytes become TLS records, then HTTP messages, then application decisions.
+
+<RecallPrompt question="how does the OSI model help during an incident?">
+It helps you narrow the failed boundary. Instead of "the API is down," you can prove whether routing, TCP, TLS, framing, HTTP semantics, or business code failed first.
+</RecallPrompt>
 
 ## Production implications
 

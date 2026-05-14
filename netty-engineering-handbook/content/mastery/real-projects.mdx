@@ -13,6 +13,12 @@ A good project is not a big app. It is a small system with one sharp lesson: byt
 
 The project should make the hidden part visible.
 
+<Misconception
+  soundsLike="A good learning project is a large app with many features."
+  actually="A good systems project is a small, observable failure lab that proves one runtime rule under breakage."
+  whyItMatters="Feature-heavy demos can hide whether you understand queues, bytes, offsets, indexes, cache pressure, containers, or connection ownership."
+/>
+
 ## Real-world problem
 
 Most tutorial projects stop too early. They prove that an API can be called, but not that you understand what happens under pressure.
@@ -35,6 +41,10 @@ If the project does not include malformed input, slow consumers, restart, overlo
 </Warning>
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the failure you intentionally inject. The project is successful when the evidence explains the runtime rule without guessing.
+</TracePrompt>
 
 <FlowDiagram title="Project learning loop">
 Build -> Break -> Observe -> Explain -> Harden -> Repeat
@@ -73,6 +83,15 @@ Every project should force one runtime boundary into the open.
 | Docker | image artifact becoming one process | missing env var, wrong command, bad dependency | exit code, logs, image history, inspect output |
 | WebSocket | persistent connection ownership | malformed message, server kill, two-instance broadcast | 101 handshake, close code, delivery matrix |
 
+<RuntimeTrace title="Evidence-first project loop">
+Choose rule | Pick one runtime rule the project must prove.
+Build path | Implement the smallest happy path that exposes the rule.
+Break path | Inject the failure that makes the hidden boundary visible.
+Capture evidence | Save metrics, logs, commands, traces, or screenshots.
+Explain fix | Make one design change and describe why that evidence justifies it.
+Repeat | Add the next failure only after the first lesson is observable.
+</RuntimeTrace>
+
 ## Code example
 
 The repository includes a runnable Spring Boot lab at `examples/systems-lab`. It is intentionally small: one service, four production-style integrations, and commands that let you prove the behavior instead of only reading about it.
@@ -110,6 +129,10 @@ Explain:
 ```
 
 Use this same shape for every track. The language changes, but the engineering loop stays the same.
+
+<RecallPrompt question="why should every practice project include a failure case?">
+The failure case proves the runtime model. Without it, the project only shows that the happy path can run once.
+</RecallPrompt>
 
 ## Production implications
 

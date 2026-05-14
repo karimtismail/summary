@@ -35,6 +35,18 @@ Good explanations name the signal, not only the abstraction. For example:
 - Use offset commit, partition assignment, lag, and rebalance when explaining consumers.
 - Use pending EventLoop tasks, write backlog, and blocked callbacks when explaining EventLoop health.
 
+## Evidence-First Teaching Pattern
+
+Every chapter should teach like an incident review that happened before the reader got paged:
+
+1. Start with the pressure: load, waiting, failure, ownership, replay, compatibility, or cost.
+2. Name the tempting wrong model before giving the correct one.
+3. Trace one concrete runtime boundary: bytes, offsets, buffers, partitions, indexes, queues, memory, connections, or side effects.
+4. Make advice conditional on evidence. Say what to measure before tuning, scaling, retrying, caching, indexing, partitioning, or changing a protocol.
+5. End with a small recall prompt that proves the reader can explain the boundary without rereading the chapter.
+
+Good chapters do not hand out magic knobs. They teach a diagnosis loop: define the workload or correctness goal, locate the slow or unsafe boundary, identify the saturated resource or broken contract, change one thing, and verify with an observable signal.
+
 ## Analogy Discipline
 
 Analogies are temporary handles, not replacements for mechanisms.

@@ -11,6 +11,12 @@ WebSocket starts as HTTP, then becomes a long-lived bidirectional message stream
 
 WebSocket is useful when both client and server need to send messages independently over one connection. It is common for collaboration, telemetry, market data, games, and live control planes.
 
+<Misconception
+  soundsLike="WebSocket is just HTTP that stays open."
+  actually="WebSocket starts with HTTP upgrade, then becomes a long-lived framed connection with independent lifecycle, heartbeat, ownership, and backpressure concerns."
+  whyItMatters="Treating it like ordinary request-response code misses slow clients, stale sessions, fanout pressure, and cleanup on close."
+/>
+
 ## Real-world problem
 
 A product polls every second for updates. Under load, most requests return no change and still pay HTTP overhead. WebSocket can move the system from repeated request-response to event delivery.
@@ -27,6 +33,10 @@ After upgrade, connection lifecycle and backpressure become long-lived concerns.
 Think of a WebSocket server as a small connection registry plus a protocol state machine. The hard part is not receiving one text frame; it is deciding who owns each connection, what messages are allowed, and what happens when the client stops reading.
 
 ## Visual explanation
+
+<TracePrompt>
+Trace connection ownership across the upgrade. After status 101, the core question is who owns the live channel and what policy applies when it slows, idles, or closes.
+</TracePrompt>
 
 <FlowDiagram title="WebSocket lifecycle">
 HTTP request -> Upgrade handshake -> WebSocket frames -> Ping, pong, and close
@@ -103,6 +113,10 @@ The HTTP codec is still needed for the handshake.
 <Highlight title="Compression and intermediaries">
 Production WebSocket stacks often add compression, proxy timeouts, load balancer idle settings, and origin checks. Test the deployed path, not only direct localhost connections.
 </Highlight>
+
+<RecallPrompt question="what changes after the WebSocket upgrade?">
+The connection stops being ordinary request-response HTTP and becomes a bidirectional framed channel that needs heartbeat, backpressure, registry cleanup, and close policy.
+</RecallPrompt>
 
 ## Production implications
 

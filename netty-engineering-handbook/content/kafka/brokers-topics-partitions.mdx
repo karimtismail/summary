@@ -13,6 +13,12 @@ A broker is a Kafka server. A topic is a named stream. A partition is the actual
 
 Kafka gives ordering inside a partition, not across all partitions in a topic.
 
+<Misconception
+  soundsLike="A topic is one ordered stream, and adding partitions only makes it faster."
+  actually="A topic is split into partition logs. Ordering is per partition, and each partition adds broker metadata, file, replication, recovery, and rebalance work."
+  whyItMatters="Over-partitioning can hurt operations, while under-partitioning caps consumer parallelism."
+/>
+
 ## Real-world problem
 
 An event stream receives 100,000 order updates per second. One ordered log on one machine becomes a bottleneck. Splitting the topic into partitions lets many brokers store and serve the stream in parallel.
@@ -28,6 +34,10 @@ Partitions are the central unit:
 - parallelism increases with partition count
 
 ## Visual explanation
+
+<TracePrompt>
+Trace the partition, not only the topic name. The partition decides ordering, consumer assignment, broker load, and recovery cost.
+</TracePrompt>
 
 <ComicStrip title="Tiny scene: where ordering lives">
 Producer | I sent all order events to one topic.
@@ -53,6 +63,15 @@ When a producer sends a record with a key, Kafka's partitioner maps that key to 
 
 When a consumer group reads a topic, Kafka assigns partitions to group members.
 
+<RuntimeTrace title="Partition as scaling unit">
+Produce | The key and partitioner choose one partition for the record.
+Append | The leader broker stores the record in that partition log.
+Replicate | Followers copy the partition from the leader.
+Assign | The consumer group gives the partition to one member at a time.
+Scale | More partitions allow more active consumers, up to operational limits.
+Recover | Failure or rebalance work happens per partition, not per abstract topic.
+</RuntimeTrace>
+
 ## Code example
 
 ```java
@@ -64,6 +83,10 @@ producer.send(record);
 ```
 
 The key is not just metadata. It is often your ordering and scaling decision.
+
+<RecallPrompt question="why can't a consumer group use more active consumers than partitions?">
+Within one consumer group, each partition is assigned to only one active member at a time, so extra members wait idle until more partitions or assignment changes exist.
+</RecallPrompt>
 
 ## Production implications
 

@@ -13,6 +13,12 @@ A buffer has capacity, position, and limit. Those three values decide where byte
 
 Most NIO bugs are not syntax bugs. They are state transition bugs.
 
+<Misconception
+  soundsLike="A buffer is just a byte array with nicer methods."
+  actually="A buffer is mutable cursor state: capacity, position, limit, and mode decide which bytes are readable, writable, or preserved."
+  whyItMatters="Array thinking causes skipped bytes, repeated bytes, and lost partial frames when reads arrive in pieces."
+/>
+
 ## Real-world problem
 
 A decoder reads from a socket and sometimes skips bytes or repeats old bytes. The parser is blamed, but the real bug is a missing `flip`, `compact`, or bounds check.
@@ -28,6 +34,10 @@ Use two modes:
 
 ## Visual explanation
 
+<TracePrompt>
+Trace `position` and `limit` through every operation. The byte contents matter, but the cursor state decides what the next channel or decoder will see.
+</TracePrompt>
+
 <FlowDiagram title="Buffer lifecycle">
 clear or compact -> channel read -> flip -> decode bytes -> compact unread tail
 </FlowDiagram>
@@ -37,6 +47,14 @@ clear or compact -> channel read -> flip -> decode bytes -> compact unread tail
 `ByteBuffer` stores a cursor in `position`. Reads and writes mutate that cursor. The channel does not know your message boundaries. The buffer only knows byte ranges.
 
 That is why decoders must be careful around partial frames.
+
+<RuntimeTrace title="Buffer state transition">
+Prepare | `clear` or `compact` makes space for more incoming bytes.
+Fill | A channel read advances `position` as bytes arrive.
+Flip | `limit` becomes the written position and `position` returns to the readable start.
+Decode | Application reads complete frames and advances `position`.
+Preserve | `compact` moves unread bytes to the front for the next read.
+</RuntimeTrace>
 
 ## Code example
 
@@ -53,6 +71,10 @@ if (read > 0) {
 ```
 
 The important line is `compact`. It preserves a partial frame for the next socket read.
+
+<RecallPrompt question="why is `compact` different from `clear` after a partial frame?">
+`compact` preserves unread bytes before making room for more input. `clear` forgets the unread tail and can destroy a frame that has not arrived completely yet.
+</RecallPrompt>
 
 ## Production implications
 
